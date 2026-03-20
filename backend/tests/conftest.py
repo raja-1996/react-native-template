@@ -15,14 +15,29 @@ from app.main import app  # noqa: E402
 
 FAKE_USER = {"id": "user-123", "email": "test@example.com", "token": "fake-token"}
 
-FAKE_NOTE = {
-    "id": "note-1",
-    "user_id": "user-123",
-    "title": "Test Note",
-    "content": "Hello world",
-    "attachment_path": None,
+FAKE_ROOM = {
+    "id": "room-1",
+    "name": "General",
+    "created_by": "user-123",
     "created_at": "2026-01-01T00:00:00Z",
     "updated_at": "2026-01-01T00:00:00Z",
+}
+
+FAKE_MESSAGE = {
+    "id": "msg-1",
+    "room_id": "room-1",
+    "user_id": "user-123",
+    "content": "Hello world",
+    "image_path": None,
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-01-01T00:00:00Z",
+}
+
+FAKE_MEMBER = {
+    "id": "member-1",
+    "room_id": "room-1",
+    "user_id": "user-123",
+    "joined_at": "2026-01-01T00:00:00Z",
 }
 
 
@@ -34,6 +49,7 @@ def mock_supabase():
         patch("app.core.supabase.get_supabase", return_value=mock_client),
         patch("app.core.supabase.get_supabase_anon", return_value=mock_client),
         patch("app.api.v1.auth.get_supabase_anon", return_value=mock_client),
+        patch("app.api.v1.auth.get_supabase", return_value=mock_client),
         patch("app.api.v1.notes.get_supabase", return_value=mock_client),
         patch("app.api.v1.storage.get_supabase", return_value=mock_client),
     ):

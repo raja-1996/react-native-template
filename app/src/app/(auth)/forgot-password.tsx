@@ -1,4 +1,4 @@
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Alert,
@@ -13,29 +13,44 @@ import {
 
 import { useAuthStore } from "@/stores/auth-store";
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const login = useAuthStore((s) => s.login);
+  const [sent, setSent] = useState(false);
+  const requestPasswordReset = useAuthStore((s) => s.requestPasswordReset);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+  const handleSubmit = async () => {
+    if (!email) {
+      Alert.alert("Error", "Please enter your email");
       return;
     }
     setLoading(true);
     try {
-      await login(email, password);
-      router.replace("/(app)/rooms");
+      await requestPasswordReset(email);
+      setSent(true);
     } catch (e: unknown) {
-      const message =
-        e instanceof Error ? e.message : "Login failed";
+      const message = e instanceof Error ? e.message : "Request failed";
       Alert.alert("Error", message);
     } finally {
       setLoading(false);
     }
   };
+
+  if (sent) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.inner}>
+          <Text style={styles.title}>Check Your Email</Text>
+          <Text style={styles.subtitle}>
+            We've sent a password reset link to {email}
+          </Text>
+          <Pressable style={styles.button} onPress={() => router.back()}>
+            <Text style={styles.buttonText}>Back to Login</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -43,8 +58,10 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.inner}>
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to your account</Text>
+        <Text style={styles.title}>Reset Password</Text>
+        <Text style={styles.subtitle}>
+          Enter your email and we'll send you a reset link
+        </Text>
 
         <TextInput
           style={styles.input}
@@ -55,38 +72,20 @@ export default function LoginScreen() {
           keyboardType="email-address"
           placeholderTextColor="#999"
         />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholderTextColor="#999"
-        />
 
         <Pressable
           style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleLogin}
+          onPress={handleSubmit}
           disabled={loading}
         >
           <Text style={styles.buttonText}>
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? "Sending..." : "Send Reset Link"}
           </Text>
         </Pressable>
 
-        <Link href="/(auth)/forgot-password" asChild>
-          <Pressable style={styles.link}>
-            <Text style={styles.linkText}>Forgot password?</Text>
-          </Pressable>
-        </Link>
-
-        <Link href="/(auth)/signup" asChild>
-          <Pressable style={styles.link}>
-            <Text style={styles.linkText}>
-              Don't have an account? <Text style={styles.linkBold}>Sign Up</Text>
-            </Text>
-          </Pressable>
-        </Link>
+        <Pressable style={styles.link} onPress={() => router.back()}>
+          <Text style={styles.linkText}>Back to Login</Text>
+        </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
@@ -121,5 +120,4 @@ const styles = StyleSheet.create({
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
   link: { alignItems: "center", marginTop: 16 },
   linkText: { color: "#666", fontSize: 14 },
-  linkBold: { color: "#111", fontWeight: "600" },
 });

@@ -28,9 +28,12 @@ jest.mock("expo-router", () => ({
   Redirect: () => null,
 }));
 
-// Mock expo-document-picker
-jest.mock("expo-document-picker", () => ({
-  getDocumentAsync: jest.fn(),
+// Mock expo-image-picker
+jest.mock("expo-image-picker", () => ({
+  launchImageLibraryAsync: jest.fn(),
+  requestMediaLibraryPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ status: "granted" })
+  ),
 }));
 
 // Mock @supabase/supabase-js

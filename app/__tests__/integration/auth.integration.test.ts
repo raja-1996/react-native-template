@@ -91,10 +91,21 @@ describe("Auth integration tests", () => {
     });
   });
 
+  describe("POST /auth/password-reset", () => {
+    it("should accept password reset request", async () => {
+      const client = createClient();
+      const res = await client.post("/auth/password-reset", {
+        email: UNIQUE_EMAIL,
+      });
+
+      expect(res.status).toBeLessThan(500);
+    });
+  });
+
   describe("Protected routes", () => {
     it("should reject unauthenticated requests", async () => {
       const client = createClient();
-      const res = await client.get("/notes");
+      const res = await client.get("/rooms");
 
       expect(res.status).toBe(401);
     });
@@ -102,7 +113,7 @@ describe("Auth integration tests", () => {
     it("should allow authenticated requests", async () => {
       const tokens = await getOrCreateTestUser(UNIQUE_EMAIL, TEST_PASSWORD);
       const client = createClient(tokens.access_token);
-      const res = await client.get("/notes");
+      const res = await client.get("/rooms");
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.data)).toBe(true);

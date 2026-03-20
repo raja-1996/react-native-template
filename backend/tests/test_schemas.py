@@ -1,8 +1,23 @@
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.auth import AuthResponse, LoginRequest, RefreshRequest, SignUpRequest
-from app.schemas.notes import NoteCreate, NoteResponse, NoteUpdate
+from app.schemas.auth import (
+    AuthResponse,
+    LoginRequest,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    RefreshRequest,
+    SignUpRequest,
+)
+from app.schemas.notes import (
+    MessageCreate,
+    MessageResponse,
+    MessageUpdate,
+    PaginatedMessages,
+    RoomCreate,
+    RoomResponse,
+    RoomUpdate,
+)
 from app.schemas.storage import PresignedUrlResponse, UploadResponse
 
 
@@ -32,58 +47,97 @@ class TestAuthSchemas:
         )
         assert resp.token_type == "bearer"
 
+    def test_password_reset_request_valid(self):
+        req = PasswordResetRequest(email="user@example.com")
+        assert req.email == "user@example.com"
 
-class TestNoteSchemas:
-    def test_note_create_with_defaults(self):
-        note = NoteCreate(title="T")
-        assert note.content == ""
+    def test_password_reset_confirm_valid(self):
+        req = PasswordResetConfirm(access_token="tok", new_password="newpass")
+        assert req.new_password == "newpass"
 
-    def test_note_create_full(self):
-        note = NoteCreate(title="T", content="C")
-        assert note.title == "T"
-        assert note.content == "C"
 
-    def test_note_create_missing_title(self):
+class TestRoomSchemas:
+    def test_room_create_valid(self):
+        room = RoomCreate(name="General")
+        assert room.name == "General"
+
+    def test_room_create_missing_name(self):
         with pytest.raises(ValidationError):
-            NoteCreate()
+            RoomCreate()
 
-    def test_note_update_all_none(self):
-        update = NoteUpdate()
-        assert update.title is None
-        assert update.content is None
+    def test_room_update_all_none(self):
+        update = RoomUpdate()
+        assert update.name is None
 
-    def test_note_update_partial(self):
-        update = NoteUpdate(title="New Title")
-        assert update.title == "New Title"
-        assert update.content is None
+    def test_room_update_with_name(self):
+        update = RoomUpdate(name="New Name")
+        assert update.name == "New Name"
 
-    def test_note_update_model_dump_excludes_none(self):
-        update = NoteUpdate(title="X")
+    def test_room_update_model_dump_excludes_none(self):
+        update = RoomUpdate(name="X")
         dumped = update.model_dump(exclude_none=True)
-        assert dumped == {"title": "X"}
+        assert dumped == {"name": "X"}
 
-    def test_note_response_with_attachment(self):
-        resp = NoteResponse(
+    def test_room_response(self):
+        resp = RoomResponse(
             id="1",
-            user_id="u1",
-            title="T",
-            content="C",
-            attachment_path="path/file.txt",
+            name="General",
+            created_by="u1",
             created_at="2026-01-01T00:00:00Z",
             updated_at="2026-01-01T00:00:00Z",
         )
-        assert resp.attachment_path == "path/file.txt"
+        assert resp.name == "General"
 
-    def test_note_response_without_attachment(self):
-        resp = NoteResponse(
+
+class TestMessageSchemas:
+    def test_message_create_default_content(self):
+        msg = MessageCreate()
+        assert msg.content == ""
+        assert msg.image_path is None
+
+    def test_message_create_with_content(self):
+        msg = MessageCreate(content="Hello")
+        assert msg.content == "Hello"
+
+    def test_message_update_all_none(self):
+        update = MessageUpdate()
+        assert update.content is None
+
+    def test_message_response_with_image(self):
+        resp = MessageResponse(
             id="1",
+            room_id="r1",
             user_id="u1",
-            title="T",
-            content="C",
+            content="Hi",
+            image_path="path/img.jpg",
             created_at="2026-01-01T00:00:00Z",
             updated_at="2026-01-01T00:00:00Z",
         )
-        assert resp.attachment_path is None
+        assert resp.image_path == "path/img.jpg"
+
+    def test_message_response_without_image(self):
+        resp = MessageResponse(
+            id="1",
+            room_id="r1",
+            user_id="u1",
+            content="Hi",
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+        )
+        assert resp.image_path is None
+
+    def test_paginated_messages(self):
+        msg = MessageResponse(
+            id="1",
+            room_id="r1",
+            user_id="u1",
+            content="Hi",
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+        )
+        page = PaginatedMessages(data=[msg], next_cursor="2026-01-01T00:00:00Z", has_more=True)
+        assert len(page.data) == 1
+        assert page.has_more is True
 
 
 class TestStorageSchemas:

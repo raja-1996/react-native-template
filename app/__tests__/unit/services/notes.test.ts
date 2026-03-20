@@ -1,5 +1,5 @@
 import api from "@/lib/api";
-import { notesApi } from "@/services/notes";
+import { messagesApi, roomsApi, storageApi } from "@/services/notes";
 
 jest.mock("@/lib/api", () => ({
   __esModule: true,
@@ -13,137 +13,196 @@ jest.mock("@/lib/api", () => ({
 
 const mockedApi = api as jest.Mocked<typeof api>;
 
-const mockNote = {
-  id: "note-1",
-  user_id: "user-1",
-  title: "Test Note",
-  content: "Test content",
-  attachment_path: null,
+const mockRoom = {
+  id: "room-1",
+  name: "General",
+  created_by: "user-1",
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };
 
-describe("notesApi", () => {
+const mockMessage = {
+  id: "msg-1",
+  room_id: "room-1",
+  user_id: "user-1",
+  content: "Hello",
+  image_path: null,
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+describe("roomsApi", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe("list", () => {
-    it("should fetch all notes", async () => {
-      mockedApi.get.mockResolvedValueOnce({ data: [mockNote] });
+    it("should fetch all rooms", async () => {
+      mockedApi.get.mockResolvedValueOnce({ data: [mockRoom] });
 
-      const result = await notesApi.list();
+      const result = await roomsApi.list();
 
-      expect(mockedApi.get).toHaveBeenCalledWith("/notes");
-      expect(result).toEqual([mockNote]);
+      expect(mockedApi.get).toHaveBeenCalledWith("/rooms");
+      expect(result).toEqual([mockRoom]);
     });
 
-    it("should return empty array when no notes", async () => {
+    it("should return empty array when no rooms", async () => {
       mockedApi.get.mockResolvedValueOnce({ data: [] });
 
-      const result = await notesApi.list();
+      const result = await roomsApi.list();
 
       expect(result).toEqual([]);
     });
   });
 
   describe("get", () => {
-    it("should fetch a single note by id", async () => {
-      mockedApi.get.mockResolvedValueOnce({ data: mockNote });
+    it("should fetch a single room by id", async () => {
+      mockedApi.get.mockResolvedValueOnce({ data: mockRoom });
 
-      const result = await notesApi.get("note-1");
+      const result = await roomsApi.get("room-1");
 
-      expect(mockedApi.get).toHaveBeenCalledWith("/notes/note-1");
-      expect(result).toEqual(mockNote);
+      expect(mockedApi.get).toHaveBeenCalledWith("/rooms/room-1");
+      expect(result).toEqual(mockRoom);
     });
   });
 
   describe("create", () => {
-    it("should create a note with title and content", async () => {
-      const input = { title: "New Note", content: "New content" };
-      mockedApi.post.mockResolvedValueOnce({
-        data: { ...mockNote, ...input },
-      });
+    it("should create a room", async () => {
+      mockedApi.post.mockResolvedValueOnce({ data: mockRoom });
 
-      const result = await notesApi.create(input);
+      const result = await roomsApi.create({ name: "General" });
 
-      expect(mockedApi.post).toHaveBeenCalledWith("/notes", input);
-      expect(result.title).toBe("New Note");
-    });
-
-    it("should create a note with only title", async () => {
-      const input = { title: "Title Only" };
-      mockedApi.post.mockResolvedValueOnce({
-        data: { ...mockNote, title: "Title Only", content: "" },
-      });
-
-      const result = await notesApi.create(input);
-
-      expect(mockedApi.post).toHaveBeenCalledWith("/notes", input);
-      expect(result.title).toBe("Title Only");
+      expect(mockedApi.post).toHaveBeenCalledWith("/rooms", { name: "General" });
+      expect(result.name).toBe("General");
     });
   });
 
   describe("update", () => {
-    it("should update a note", async () => {
-      const updates = { title: "Updated Title" };
-      mockedApi.patch.mockResolvedValueOnce({
-        data: { ...mockNote, ...updates },
-      });
+    it("should update a room", async () => {
+      const updated = { ...mockRoom, name: "Renamed" };
+      mockedApi.patch.mockResolvedValueOnce({ data: updated });
 
-      const result = await notesApi.update("note-1", updates);
+      const result = await roomsApi.update("room-1", { name: "Renamed" });
 
-      expect(mockedApi.patch).toHaveBeenCalledWith("/notes/note-1", updates);
-      expect(result.title).toBe("Updated Title");
+      expect(mockedApi.patch).toHaveBeenCalledWith("/rooms/room-1", { name: "Renamed" });
+      expect(result.name).toBe("Renamed");
     });
   });
 
   describe("delete", () => {
-    it("should delete a note", async () => {
+    it("should delete a room", async () => {
       mockedApi.delete.mockResolvedValueOnce({ data: undefined });
 
-      await notesApi.delete("note-1");
+      await roomsApi.delete("room-1");
 
-      expect(mockedApi.delete).toHaveBeenCalledWith("/notes/note-1");
+      expect(mockedApi.delete).toHaveBeenCalledWith("/rooms/room-1");
+    });
+  });
+});
+
+describe("messagesApi", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("list", () => {
+    it("should fetch messages for a room", async () => {
+      const page = { data: [mockMessage], next_cursor: null, has_more: false };
+      mockedApi.get.mockResolvedValueOnce({ data: page });
+
+      const result = await messagesApi.list("room-1");
+
+      expect(mockedApi.get).toHaveBeenCalledWith("/rooms/room-1/messages", { params: {} });
+      expect(result.data).toEqual([mockMessage]);
+    });
+
+    it("should pass cursor and limit params", async () => {
+      const page = { data: [], next_cursor: null, has_more: false };
+      mockedApi.get.mockResolvedValueOnce({ data: page });
+
+      await messagesApi.list("room-1", "2026-01-01T00:00:00Z", 10);
+
+      expect(mockedApi.get).toHaveBeenCalledWith("/rooms/room-1/messages", {
+        params: { cursor: "2026-01-01T00:00:00Z", limit: "10" },
+      });
     });
   });
 
-  describe("uploadAttachment", () => {
-    it("should upload a file as FormData", async () => {
+  describe("create", () => {
+    it("should create a message", async () => {
+      mockedApi.post.mockResolvedValueOnce({ data: mockMessage });
+
+      const result = await messagesApi.create("room-1", { content: "Hello" });
+
+      expect(mockedApi.post).toHaveBeenCalledWith("/rooms/room-1/messages", { content: "Hello" });
+      expect(result.content).toBe("Hello");
+    });
+  });
+
+  describe("update", () => {
+    it("should update a message", async () => {
+      const updated = { ...mockMessage, content: "Edited" };
+      mockedApi.patch.mockResolvedValueOnce({ data: updated });
+
+      const result = await messagesApi.update("room-1", "msg-1", { content: "Edited" });
+
+      expect(mockedApi.patch).toHaveBeenCalledWith("/rooms/room-1/messages/msg-1", { content: "Edited" });
+      expect(result.content).toBe("Edited");
+    });
+  });
+
+  describe("delete", () => {
+    it("should delete a message", async () => {
+      mockedApi.delete.mockResolvedValueOnce({ data: undefined });
+
+      await messagesApi.delete("room-1", "msg-1");
+
+      expect(mockedApi.delete).toHaveBeenCalledWith("/rooms/room-1/messages/msg-1");
+    });
+  });
+});
+
+describe("storageApi", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("uploadImage", () => {
+    it("should upload an image as FormData", async () => {
       mockedApi.post.mockResolvedValueOnce({
-        data: { path: "uploads/note-1/file.pdf" },
+        data: { path: "user-1/photo.jpg", url: "https://storage.example.com/photo.jpg" },
       });
 
-      await notesApi.uploadAttachment("note-1", "file:///tmp/file.pdf", "file.pdf");
+      await storageApi.uploadImage("file:///tmp/photo.jpg", "photo.jpg");
 
       expect(mockedApi.post).toHaveBeenCalledWith(
-        "/storage/upload/note-1",
+        "/storage/upload",
         expect.any(FormData),
         { headers: { "Content-Type": "multipart/form-data" } }
       );
     });
   });
 
-  describe("getAttachmentUrl", () => {
-    it("should return the attachment URL", async () => {
+  describe("getImageUrl", () => {
+    it("should return the image URL", async () => {
       mockedApi.get.mockResolvedValueOnce({
-        data: { url: "https://storage.example.com/file.pdf" },
+        data: { url: "https://storage.example.com/signed/photo.jpg" },
       });
 
-      const result = await notesApi.getAttachmentUrl("note-1");
+      const result = await storageApi.getImageUrl("user-1/photo.jpg");
 
-      expect(mockedApi.get).toHaveBeenCalledWith("/storage/download/note-1");
-      expect(result).toBe("https://storage.example.com/file.pdf");
+      expect(mockedApi.get).toHaveBeenCalledWith("/storage/url/user-1/photo.jpg");
+      expect(result).toBe("https://storage.example.com/signed/photo.jpg");
     });
   });
 
-  describe("deleteAttachment", () => {
-    it("should delete an attachment", async () => {
+  describe("deleteImage", () => {
+    it("should delete an image", async () => {
       mockedApi.delete.mockResolvedValueOnce({ data: undefined });
 
-      await notesApi.deleteAttachment("note-1");
+      await storageApi.deleteImage("user-1/photo.jpg");
 
-      expect(mockedApi.delete).toHaveBeenCalledWith("/storage/delete/note-1");
+      expect(mockedApi.delete).toHaveBeenCalledWith("/storage/delete/user-1/photo.jpg");
     });
   });
 });

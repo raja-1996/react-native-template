@@ -3,32 +3,47 @@ import { renderHook, waitFor } from "@testing-library/react-native";
 import React from "react";
 
 import {
-  useCreateNote,
-  useDeleteNote,
-  useNote,
-  useNotes,
-  useUpdateNote,
+  useCreateRoom,
+  useDeleteRoom,
+  useRooms,
+  useCreateMessage,
+  useDeleteMessage,
 } from "@/hooks/use-notes";
-import { notesApi } from "@/services/notes";
+import { roomsApi, messagesApi } from "@/services/notes";
 
 jest.mock("@/services/notes", () => ({
-  notesApi: {
+  roomsApi: {
     list: jest.fn(),
     get: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
   },
+  messagesApi: {
+    list: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+  },
 }));
 
-const mockedNotesApi = notesApi as jest.Mocked<typeof notesApi>;
+const mockedRoomsApi = roomsApi as jest.Mocked<typeof roomsApi>;
+const mockedMessagesApi = messagesApi as jest.Mocked<typeof messagesApi>;
 
-const mockNote = {
-  id: "note-1",
+const mockRoom = {
+  id: "room-1",
+  name: "General",
+  created_by: "user-1",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
+};
+
+const mockMessage = {
+  id: "msg-1",
+  room_id: "room-1",
   user_id: "user-1",
-  title: "Test Note",
-  content: "Content here",
-  attachment_path: null,
+  content: "Hello",
+  image_path: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };
@@ -45,28 +60,28 @@ function createWrapper() {
   );
 }
 
-describe("useNotes", () => {
+describe("useRooms", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should fetch notes list", async () => {
-    mockedNotesApi.list.mockResolvedValueOnce([mockNote]);
+  it("should fetch rooms list", async () => {
+    mockedRoomsApi.list.mockResolvedValueOnce([mockRoom]);
 
-    const { result } = renderHook(() => useNotes(), {
+    const { result } = renderHook(() => useRooms(), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(result.current.data).toEqual([mockNote]);
-    expect(mockedNotesApi.list).toHaveBeenCalledTimes(1);
+    expect(result.current.data).toEqual([mockRoom]);
+    expect(mockedRoomsApi.list).toHaveBeenCalledTimes(1);
   });
 
-  it("should handle empty notes list", async () => {
-    mockedNotesApi.list.mockResolvedValueOnce([]);
+  it("should handle empty rooms list", async () => {
+    mockedRoomsApi.list.mockResolvedValueOnce([]);
 
-    const { result } = renderHook(() => useNotes(), {
+    const { result } = renderHook(() => useRooms(), {
       wrapper: createWrapper(),
     });
 
@@ -75,9 +90,9 @@ describe("useNotes", () => {
   });
 
   it("should handle fetch error", async () => {
-    mockedNotesApi.list.mockRejectedValueOnce(new Error("Network error"));
+    mockedRoomsApi.list.mockRejectedValueOnce(new Error("Network error"));
 
-    const { result } = renderHook(() => useNotes(), {
+    const { result } = renderHook(() => useRooms(), {
       wrapper: createWrapper(),
     });
 
@@ -86,100 +101,85 @@ describe("useNotes", () => {
   });
 });
 
-describe("useNote", () => {
+describe("useCreateRoom", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should fetch a single note", async () => {
-    mockedNotesApi.get.mockResolvedValueOnce(mockNote);
+  it("should create a room and invalidate queries", async () => {
+    const newRoom = { ...mockRoom, id: "room-2", name: "New Room" };
+    mockedRoomsApi.create.mockResolvedValueOnce(newRoom);
 
-    const { result } = renderHook(() => useNote("note-1"), {
+    const { result } = renderHook(() => useCreateRoom(), {
       wrapper: createWrapper(),
     });
+
+    result.current.mutate({ name: "New Room" });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(result.current.data).toEqual(mockNote);
-    expect(mockedNotesApi.get).toHaveBeenCalledWith("note-1");
-  });
-
-  it("should not fetch when id is empty", () => {
-    const { result } = renderHook(() => useNote(""), {
-      wrapper: createWrapper(),
-    });
-
-    expect(result.current.fetchStatus).toBe("idle");
-    expect(mockedNotesApi.get).not.toHaveBeenCalled();
-  });
-});
-
-describe("useCreateNote", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it("should create a note and invalidate queries", async () => {
-    const newNote = { ...mockNote, id: "note-2", title: "New Note" };
-    mockedNotesApi.create.mockResolvedValueOnce(newNote);
-
-    const { result } = renderHook(() => useCreateNote(), {
-      wrapper: createWrapper(),
-    });
-
-    result.current.mutate({ title: "New Note", content: "Content" });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-    expect(mockedNotesApi.create).toHaveBeenCalledWith(
-      { title: "New Note", content: "Content" },
+    expect(mockedRoomsApi.create).toHaveBeenCalledWith(
+      { name: "New Room" },
       expect.anything()
     );
   });
 });
 
-describe("useUpdateNote", () => {
+describe("useDeleteRoom", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should update a note", async () => {
-    const updatedNote = { ...mockNote, title: "Updated" };
-    mockedNotesApi.update.mockResolvedValueOnce(updatedNote);
+  it("should delete a room", async () => {
+    mockedRoomsApi.delete.mockResolvedValueOnce(undefined);
 
-    const { result } = renderHook(() => useUpdateNote(), {
+    const { result } = renderHook(() => useDeleteRoom(), {
       wrapper: createWrapper(),
     });
 
-    result.current.mutate({ id: "note-1", title: "Updated" });
+    result.current.mutate("room-1");
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(mockedNotesApi.update).toHaveBeenCalledWith("note-1", {
-      title: "Updated",
-    });
+    expect(mockedRoomsApi.delete).toHaveBeenCalledWith(
+      "room-1",
+      expect.anything()
+    );
   });
 });
 
-describe("useDeleteNote", () => {
+describe("useCreateMessage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should delete a note", async () => {
-    mockedNotesApi.delete.mockResolvedValueOnce(undefined);
+  it("should create a message", async () => {
+    mockedMessagesApi.create.mockResolvedValueOnce(mockMessage);
 
-    const { result } = renderHook(() => useDeleteNote(), {
+    const { result } = renderHook(() => useCreateMessage(), {
       wrapper: createWrapper(),
     });
 
-    result.current.mutate("note-1");
+    result.current.mutate({ roomId: "room-1", content: "Hello" });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+});
 
-    expect(mockedNotesApi.delete).toHaveBeenCalledWith(
-      "note-1",
-      expect.anything()
-    );
+describe("useDeleteMessage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should delete a message", async () => {
+    mockedMessagesApi.delete.mockResolvedValueOnce(undefined);
+
+    const { result } = renderHook(() => useDeleteMessage(), {
+      wrapper: createWrapper(),
+    });
+
+    result.current.mutate({ roomId: "room-1", messageId: "msg-1" });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Integration tests for Notes CRUD against a real backend.
+ * Integration tests for Rooms & Messages CRUD against a real backend.
  *
  * Run:
  *   API_URL=http://localhost:8000 npx jest --config jest.integration.config.js notes-crud
@@ -12,166 +12,125 @@ import {
 } from "./api-helpers";
 
 const RUN_ID = Date.now().toString(36);
-const UNIQUE_EMAIL = `notes-test-${RUN_ID}@integration.test`;
+const UNIQUE_EMAIL = `chat-test-${RUN_ID}@integration.test`;
 
-describe("Notes CRUD integration tests", () => {
+describe("Rooms & Messages CRUD integration tests", () => {
   let tokens: AuthTokens;
-  let noteId: string;
+  let roomId: string;
+  let messageId: string;
 
   beforeAll(async () => {
     tokens = await getOrCreateTestUser(UNIQUE_EMAIL, TEST_PASSWORD);
   });
 
-  describe("POST /notes", () => {
-    it("should create a new note", async () => {
+  describe("POST /rooms", () => {
+    it("should create a new room", async () => {
       const client = createClient(tokens.access_token);
-      const res = await client.post("/notes", {
-        title: "Integration Test Note",
-        content: "Created by integration tests",
+      const res = await client.post("/rooms", {
+        name: "Integration Test Room",
       });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       expect(res.data).toHaveProperty("id");
-      expect(res.data.title).toBe("Integration Test Note");
-      expect(res.data.content).toBe("Created by integration tests");
+      expect(res.data.name).toBe("Integration Test Room");
       expect(res.data).toHaveProperty("created_at");
-      expect(res.data).toHaveProperty("updated_at");
 
-      noteId = res.data.id;
+      roomId = res.data.id;
     });
 
-    it("should create a note with only title", async () => {
-      const client = createClient(tokens.access_token);
-      const res = await client.post("/notes", {
-        title: "Title Only Note",
-      });
-
-      expect(res.status).toBe(200);
-      expect(res.data.title).toBe("Title Only Note");
-
-      // Clean up
-      await client.delete(`/notes/${res.data.id}`);
-    });
-
-    it("should reject creating a note without auth", async () => {
+    it("should reject creating a room without auth", async () => {
       const client = createClient();
-      const res = await client.post("/notes", {
-        title: "Unauthorized Note",
+      const res = await client.post("/rooms", {
+        name: "Unauthorized Room",
       });
 
       expect(res.status).toBe(401);
     });
   });
 
-  describe("GET /notes", () => {
-    it("should list notes for the authenticated user", async () => {
+  describe("GET /rooms", () => {
+    it("should list rooms for the authenticated user", async () => {
       const client = createClient(tokens.access_token);
-      const res = await client.get("/notes");
+      const res = await client.get("/rooms");
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.data)).toBe(true);
       expect(res.data.length).toBeGreaterThanOrEqual(1);
 
       const found = res.data.find(
-        (n: { id: string }) => n.id === noteId
+        (r: { id: string }) => r.id === roomId
       );
       expect(found).toBeDefined();
-      expect(found.title).toBe("Integration Test Note");
+      expect(found.name).toBe("Integration Test Room");
     });
   });
 
-  describe("GET /notes/:id", () => {
-    it("should fetch a single note by id", async () => {
+  describe("PATCH /rooms/:id", () => {
+    it("should update room name", async () => {
       const client = createClient(tokens.access_token);
-      const res = await client.get(`/notes/${noteId}`);
+      const res = await client.patch(`/rooms/${roomId}`, {
+        name: "Updated Room",
+      });
 
       expect(res.status).toBe(200);
-      expect(res.data.id).toBe(noteId);
-      expect(res.data.title).toBe("Integration Test Note");
-    });
-
-    it("should return 404 for non-existent note", async () => {
-      const client = createClient(tokens.access_token);
-      const res = await client.get("/notes/00000000-0000-0000-0000-000000000000");
-
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.data.name).toBe("Updated Room");
     });
   });
 
-  describe("PATCH /notes/:id", () => {
-    it("should update note title", async () => {
+  describe("POST /rooms/:id/messages", () => {
+    it("should create a new message", async () => {
       const client = createClient(tokens.access_token);
-      const res = await client.patch(`/notes/${noteId}`, {
-        title: "Updated Integration Note",
+      const res = await client.post(`/rooms/${roomId}/messages`, {
+        content: "Hello from integration test",
       });
 
-      expect(res.status).toBe(200);
-      expect(res.data.title).toBe("Updated Integration Note");
-    });
+      expect(res.status).toBe(201);
+      expect(res.data).toHaveProperty("id");
+      expect(res.data.content).toBe("Hello from integration test");
 
-    it("should update note content", async () => {
-      const client = createClient(tokens.access_token);
-      const res = await client.patch(`/notes/${noteId}`, {
-        content: "Updated content from integration test",
-      });
-
-      expect(res.status).toBe(200);
-      expect(res.data.content).toBe("Updated content from integration test");
-    });
-
-    it("should update both title and content", async () => {
-      const client = createClient(tokens.access_token);
-      const res = await client.patch(`/notes/${noteId}`, {
-        title: "Final Title",
-        content: "Final content",
-      });
-
-      expect(res.status).toBe(200);
-      expect(res.data.title).toBe("Final Title");
-      expect(res.data.content).toBe("Final content");
+      messageId = res.data.id;
     });
   });
 
-  describe("DELETE /notes/:id", () => {
-    it("should delete a note", async () => {
+  describe("GET /rooms/:id/messages", () => {
+    it("should list messages in a room", async () => {
       const client = createClient(tokens.access_token);
-      const res = await client.delete(`/notes/${noteId}`);
+      const res = await client.get(`/rooms/${roomId}/messages`);
+
+      expect(res.status).toBe(200);
+      expect(res.data).toHaveProperty("data");
+      expect(Array.isArray(res.data.data)).toBe(true);
+      expect(res.data.data.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe("PATCH /rooms/:id/messages/:messageId", () => {
+    it("should update a message", async () => {
+      const client = createClient(tokens.access_token);
+      const res = await client.patch(`/rooms/${roomId}/messages/${messageId}`, {
+        content: "Edited message",
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.data.content).toBe("Edited message");
+    });
+  });
+
+  describe("DELETE /rooms/:id/messages/:messageId", () => {
+    it("should delete a message", async () => {
+      const client = createClient(tokens.access_token);
+      const res = await client.delete(`/rooms/${roomId}/messages/${messageId}`);
 
       expect(res.status).toBeLessThan(500);
     });
-
-    it("should confirm note is deleted", async () => {
-      const client = createClient(tokens.access_token);
-      const res = await client.get(`/notes/${noteId}`);
-
-      expect(res.status).toBeGreaterThanOrEqual(400);
-    });
   });
 
-  describe("Data isolation", () => {
-    it("should not return notes from other users", async () => {
-      // Create a second user
-      const otherEmail = `other-${RUN_ID}@integration.test`;
-      const otherTokens = await getOrCreateTestUser(otherEmail, TEST_PASSWORD);
-
-      // Create a note as the other user
-      const otherClient = createClient(otherTokens.access_token);
-      const createRes = await otherClient.post("/notes", {
-        title: "Other User Note",
-      });
-      expect(createRes.status).toBe(200);
-      const otherNoteId = createRes.data.id;
-
-      // Verify the original user cannot see it
+  describe("DELETE /rooms/:id", () => {
+    it("should delete a room", async () => {
       const client = createClient(tokens.access_token);
-      const listRes = await client.get("/notes");
-      const found = listRes.data.find(
-        (n: { id: string }) => n.id === otherNoteId
-      );
-      expect(found).toBeUndefined();
+      const res = await client.delete(`/rooms/${roomId}`);
 
-      // Clean up
-      await otherClient.delete(`/notes/${otherNoteId}`);
+      expect(res.status).toBeLessThan(500);
     });
   });
 });

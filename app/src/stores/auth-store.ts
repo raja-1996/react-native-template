@@ -16,6 +16,12 @@ interface AuthState {
   signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   hydrate: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<void>;
+  confirmPasswordReset: (
+    accessToken: string,
+    newPassword: string
+  ) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -28,8 +34,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (token) {
       try {
         // Validate token by calling a protected endpoint
-        const { data } = await api.get("/notes");
-        // If we get here, token is valid
+        await api.get("/rooms");
         const userJson = await SecureStore.getItemAsync("user");
         const user = userJson ? JSON.parse(userJson) : null;
         set({ user, isAuthenticated: true, isLoading: false });
@@ -62,6 +67,25 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     await api.post("/auth/logout");
+    await SecureStore.deleteItemAsync("access_token");
+    await SecureStore.deleteItemAsync("refresh_token");
+    await SecureStore.deleteItemAsync("user");
+    set({ user: null, isAuthenticated: false });
+  },
+
+  requestPasswordReset: async (email) => {
+    await api.post("/auth/password-reset", { email });
+  },
+
+  confirmPasswordReset: async (accessToken, newPassword) => {
+    await api.post("/auth/password-reset/confirm", {
+      access_token: accessToken,
+      new_password: newPassword,
+    });
+  },
+
+  deleteAccount: async () => {
+    await api.delete("/auth/account");
     await SecureStore.deleteItemAsync("access_token");
     await SecureStore.deleteItemAsync("refresh_token");
     await SecureStore.deleteItemAsync("user");

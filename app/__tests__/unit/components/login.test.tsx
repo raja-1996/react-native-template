@@ -69,7 +69,7 @@ describe("LoginScreen", () => {
 
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith("test@example.com", "password123");
-      expect(router.replace).toHaveBeenCalledWith("/(app)/notes");
+      expect(router.replace).toHaveBeenCalledWith("/(app)/rooms");
     });
   });
 
@@ -106,5 +106,11 @@ describe("LoginScreen", () => {
     const { getByText } = render(<LoginScreen />);
 
     expect(getByText("Sign Up")).toBeTruthy();
+  });
+
+  it("should have a forgot password link", () => {
+    const { getByText } = render(<LoginScreen />);
+
+    expect(getByText("Forgot password?")).toBeTruthy();
   });
 });
