@@ -78,7 +78,9 @@ npx supabase start
 # Run migrations
 npx supabase db push
 
-# Note the output — you'll need SUPABASE_URL, ANON_KEY, SERVICE_ROLE_KEY
+# Note the output — you'll need SUPABASE_URL plus the publishable/secret keys
+# (new projects use SUPABASE_PUBLISHABLE_DEFAULT_KEY / SUPABASE_SECRET_DEFAULT_KEY;
+#  legacy projects still provide ANON_KEY / SERVICE_ROLE_KEY)
 npx supabase status
 ```
 

@@ -6,11 +6,13 @@ _client: Client | None = None
 
 
 def get_supabase() -> Client:
+    """Service-role / secret-key client (bypasses RLS)."""
     global _client
     if _client is None:
-        _client = create_client(settings.supabase_url, settings.supabase_service_role_key)
+        _client = create_client(settings.supabase_url, settings.supabase_secret_key)
     return _client
 
 
 def get_supabase_anon() -> Client:
-    return create_client(settings.supabase_url, settings.supabase_anon_key)
+    """Anonymous / publishable-key client (respects RLS)."""
+    return create_client(settings.supabase_url, settings.supabase_publishable_key)

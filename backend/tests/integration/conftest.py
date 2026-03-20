@@ -22,8 +22,14 @@ import pytest
 # ---------------------------------------------------------------------------
 
 _SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:54321")
-_SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
-_SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+_SUPABASE_PUBLISHABLE_KEY = (
+    os.getenv("SUPABASE_PUBLISHABLE_DEFAULT_KEY")
+    or os.getenv("SUPABASE_ANON_KEY", "")
+)
+_SUPABASE_SECRET_KEY = (
+    os.getenv("SUPABASE_SECRET_DEFAULT_KEY")
+    or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+)
 _BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
@@ -74,12 +80,12 @@ def supabase_url():
 
 @pytest.fixture(scope="session")
 def supabase_anon_key():
-    return _SUPABASE_ANON_KEY
+    return _SUPABASE_PUBLISHABLE_KEY
 
 
 @pytest.fixture(scope="session")
 def supabase_service_role_key():
-    return _SUPABASE_SERVICE_ROLE_KEY
+    return _SUPABASE_SECRET_KEY
 
 
 @pytest.fixture(scope="session")
