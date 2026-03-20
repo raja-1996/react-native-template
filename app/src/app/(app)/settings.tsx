@@ -104,7 +104,7 @@ export default function SettingsScreen() {
             </ThemedText>
           </Pressable>
 
-          <View style={styles.infoRow}>
+          <View style={[styles.infoRow, { borderTopColor: colors.border }]}>
             <ThemedText variant="secondary">Email</ThemedText>
             <ThemedText>{user?.email || 'Unknown'}</ThemedText>
           </View>
@@ -114,7 +114,7 @@ export default function SettingsScreen() {
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <Button title="Sign Out" variant="outline" onPress={handleLogout} />
 
-          <View style={styles.dangerZone}>
+          <View style={[styles.dangerZone, { borderTopColor: colors.border }]}>
             <ThemedText style={[styles.dangerTitle, { color: colors.danger }]}>
               Danger Zone
             </ThemedText>
@@ -198,13 +198,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: Spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E6E8EB',
+    borderTopColor: undefined,
   },
   dangerZone: {
     marginTop: Spacing.lg,
     paddingTop: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E6E8EB',
+    borderTopColor: undefined,
   },
   dangerTitle: {
     fontSize: FontSize.lg,

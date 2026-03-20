@@ -120,9 +120,21 @@ export const useAuthStore = create<AuthState>((set) => ({
       } else {
         set({ isLoading: false });
       }
-    } catch {
-      await clearTokens();
-      set({ isLoading: false });
+    } catch (error: any) {
+      // Distinguish between auth errors (401) and network errors
+      if (error.response?.status === 401) {
+        // Token is invalid — clear and force re-login
+        await clearTokens();
+        set({ isLoading: false });
+      } else {
+        // Network error — keep tokens and allow offline use
+        set({
+          accessToken,
+          refreshToken,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      }
     }
   },
 }));

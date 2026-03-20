@@ -9,14 +9,16 @@ interface TodoCardProps {
   isCompleted: boolean;
   onPress: () => void;
   onToggle: () => void;
+  onLongPress?: () => void;
 }
 
-export function TodoCard({ title, description, isCompleted, onPress, onToggle }: TodoCardProps) {
+export function TodoCard({ title, description, isCompleted, onPress, onToggle, onLongPress }: TodoCardProps) {
   const colors = useTheme();
 
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: colors.surface, opacity: pressed ? 0.8 : 1 },

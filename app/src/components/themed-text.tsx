@@ -12,9 +12,9 @@ export function ThemedText({ style, variant = 'default', ...rest }: ThemedTextPr
     <Text
       style={[
         styles.base,
+        { color: colors.text },
         variant === 'secondary' && { color: colors.textSecondary },
         variant === 'title' && styles.title,
-        { color: variant === 'secondary' ? colors.textSecondary : colors.text },
         style,
       ]}
       {...rest}

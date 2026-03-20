@@ -29,17 +29,20 @@ export default function TodoDetailScreen() {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [seededId, setSeededId] = useState<string | null>(null);
+
   useEffect(() => {
-    if (todo) {
+    if (todo && todo.id !== seededId) {
       setTitle(todo.title);
       setDescription(todo.description);
       setIsCompleted(todo.is_completed);
       setImagePath(todo.image_path);
+      setSeededId(todo.id);
       if (todo.image_path) {
         storageService.getUrl(todo.image_path).then(({ data }) => setImageUrl(data.url)).catch(() => {});
       }
     }
-  }, [todo]);
+  }, [todo, seededId]);
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -71,8 +74,12 @@ export default function TodoDetailScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteTodo.mutateAsync(id!);
-          router.back();
+          try {
+            await deleteTodo.mutateAsync(id!);
+            router.back();
+          } catch (error: any) {
+            Alert.alert('Error', error.response?.data?.detail || 'Failed to delete');
+          }
         },
       },
     ]);

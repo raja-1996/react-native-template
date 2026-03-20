@@ -45,6 +45,7 @@ export default function TodosScreen() {
             isCompleted={item.is_completed}
             onPress={() => router.push({ pathname: '/(app)/todo-detail', params: { id: item.id } })}
             onToggle={() => handleToggle(item.id, item.is_completed)}
+            onLongPress={() => handleDelete(item.id)}
           />
         )}
         contentContainerStyle={styles.list}
