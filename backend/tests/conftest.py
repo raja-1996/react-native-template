@@ -33,24 +33,15 @@ FAKE_MESSAGE = {
     "updated_at": "2026-01-01T00:00:00Z",
 }
 
-FAKE_MEMBER = {
-    "id": "member-1",
-    "room_id": "room-1",
-    "user_id": "user-123",
-    "joined_at": "2026-01-01T00:00:00Z",
-}
-
 
 @pytest.fixture()
 def mock_supabase():
-    """Provides a MagicMock supabase client and patches both get_supabase and get_supabase_anon."""
+    """Provides a MagicMock supabase client and patches all supabase client factories."""
     mock_client = MagicMock()
     with (
         patch("app.core.supabase.get_supabase", return_value=mock_client),
-        patch("app.core.supabase.get_supabase_anon", return_value=mock_client),
-        patch("app.api.v1.auth.get_supabase_anon", return_value=mock_client),
         patch("app.api.v1.auth.get_supabase", return_value=mock_client),
-        patch("app.api.v1.notes.get_supabase", return_value=mock_client),
+        patch("app.api.v1.notes.get_user_supabase", return_value=mock_client),
         patch("app.api.v1.storage.get_supabase", return_value=mock_client),
     ):
         yield mock_client

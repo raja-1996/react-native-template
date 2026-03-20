@@ -14,18 +14,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
 
 import {
   useCreateMessage,
   useDeleteMessage,
   useMessages,
 } from "@/hooks/use-notes";
-import {
-  usePresence,
-  useRealtimeMessages,
-  useTypingIndicator,
-} from "@/hooks/use-realtime-notes";
+import { useRealtimeMessages } from "@/hooks/use-realtime-notes";
 import { Message, storageApi } from "@/services/notes";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -46,15 +41,9 @@ export default function ChatScreen() {
   } = useMessages(roomId);
   const createMessage = useCreateMessage();
   const deleteMessage = useDeleteMessage();
-  const queryClient = useQueryClient();
 
   // Realtime
   useRealtimeMessages(roomId);
-  usePresence(roomId, userId);
-  const { setTyping } = useTypingIndicator(roomId, userId);
-
-  const onlineUsers = queryClient.getQueryData<string[]>(["presence", roomId]) ?? [];
-  const typingUsers = queryClient.getQueryData<string[]>(["typing", roomId]) ?? [];
 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -124,14 +113,6 @@ export default function ChatScreen() {
     [roomId, deleteMessage]
   );
 
-  const handleTextChange = useCallback(
-    (value: string) => {
-      setText(value);
-      setTyping();
-    },
-    [setTyping]
-  );
-
   const renderMessage = useCallback(
     ({ item }: { item: Message }) => {
       const isOwn = item.user_id === userId;
@@ -191,20 +172,6 @@ export default function ChatScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={90}
     >
-      {/* Online / typing indicators */}
-      <View style={styles.statusBar}>
-        <Text style={styles.statusText}>
-          {onlineUsers.length} online
-        </Text>
-        {typingUsers.length > 0 && (
-          <Text style={styles.typingText}>
-            {typingUsers.length === 1
-              ? "Someone is typing..."
-              : `${typingUsers.length} people typing...`}
-          </Text>
-        )}
-      </View>
-
       <FlatList
         data={messages}
         keyExtractor={(item) => item.id}
@@ -236,7 +203,7 @@ export default function ChatScreen() {
           style={styles.textInput}
           placeholder="Type a message..."
           value={text}
-          onChangeText={handleTextChange}
+          onChangeText={setText}
           multiline
           maxLength={2000}
           placeholderTextColor="#999"
@@ -256,17 +223,6 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  statusBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  statusText: { fontSize: 12, color: "#4a4" },
-  typingText: { fontSize: 12, color: "#999", fontStyle: "italic" },
   messageList: { padding: 16, gap: 8 },
   messageBubble: {
     maxWidth: "80%",

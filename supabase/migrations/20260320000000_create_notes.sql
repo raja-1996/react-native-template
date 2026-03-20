@@ -37,18 +37,6 @@ create table if not exists public.rooms (
 
 create index if not exists idx_rooms_created_by on public.rooms(created_by);
 
--- Room members (many-to-many)
-create table if not exists public.room_members (
-    id uuid default gen_random_uuid() primary key,
-    room_id uuid not null references public.rooms(id) on delete cascade,
-    user_id uuid not null references auth.users(id) on delete cascade,
-    joined_at timestamptz not null default now(),
-    unique(room_id, user_id)
-);
-
-create index if not exists idx_room_members_room on public.room_members(room_id);
-create index if not exists idx_room_members_user on public.room_members(user_id);
-
 -- Messages table
 create table if not exists public.messages (
     id uuid default gen_random_uuid() primary key,
@@ -66,7 +54,6 @@ create index if not exists idx_messages_user on public.messages(user_id);
 -- Enable RLS on all tables
 alter table public.profiles enable row level security;
 alter table public.rooms enable row level security;
-alter table public.room_members enable row level security;
 alter table public.messages enable row level security;
 
 -- =============================================
@@ -82,15 +69,10 @@ create policy "Users can update own profile"
     on public.profiles for update
     using (auth.uid() = id);
 
--- Rooms: members can read rooms they belong to
-create policy "Members can read rooms"
+-- Rooms: any authenticated user can read rooms, creator can modify
+create policy "Authenticated users can read rooms"
     on public.rooms for select
-    using (
-        exists (
-            select 1 from public.room_members
-            where room_id = rooms.id and user_id = auth.uid()
-        )
-    );
+    using (auth.role() = 'authenticated');
 
 create policy "Users can create rooms"
     on public.rooms for insert
@@ -104,43 +86,14 @@ create policy "Creator can delete room"
     on public.rooms for delete
     using (auth.uid() = created_by);
 
--- Room members: members can see other members
-create policy "Members can read room members"
-    on public.room_members for select
-    using (
-        exists (
-            select 1 from public.room_members rm
-            where rm.room_id = room_members.room_id and rm.user_id = auth.uid()
-        )
-    );
-
-create policy "Users can join rooms"
-    on public.room_members for insert
-    with check (auth.uid() = user_id);
-
-create policy "Users can leave rooms"
-    on public.room_members for delete
-    using (auth.uid() = user_id);
-
--- Messages: members can read messages in their rooms
-create policy "Members can read messages"
+-- Messages: any authenticated user can read messages, own messages can be modified
+create policy "Authenticated users can read messages"
     on public.messages for select
-    using (
-        exists (
-            select 1 from public.room_members
-            where room_id = messages.room_id and user_id = auth.uid()
-        )
-    );
+    using (auth.role() = 'authenticated');
 
-create policy "Members can send messages"
+create policy "Authenticated users can send messages"
     on public.messages for insert
-    with check (
-        auth.uid() = user_id
-        and exists (
-            select 1 from public.room_members
-            where room_id = messages.room_id and user_id = auth.uid()
-        )
-    );
+    with check (auth.uid() = user_id);
 
 create policy "Users can update own messages"
     on public.messages for update
@@ -157,10 +110,6 @@ create policy "Service role full access profiles"
 
 create policy "Service role full access rooms"
     on public.rooms for all
-    using (auth.role() = 'service_role');
-
-create policy "Service role full access room_members"
-    on public.room_members for all
     using (auth.role() = 'service_role');
 
 create policy "Service role full access messages"
@@ -195,7 +144,6 @@ create trigger messages_updated_at
 -- =============================================
 
 alter publication supabase_realtime add table public.messages;
-alter publication supabase_realtime add table public.room_members;
 
 -- =============================================
 -- Storage

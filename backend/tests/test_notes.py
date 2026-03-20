@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from tests.conftest import FAKE_MEMBER, FAKE_MESSAGE, FAKE_ROOM, FAKE_USER
+from tests.conftest import FAKE_MESSAGE, FAKE_ROOM
 
 
 # ---- Rooms ----
@@ -8,10 +8,7 @@ from tests.conftest import FAKE_MEMBER, FAKE_MESSAGE, FAKE_ROOM, FAKE_USER
 
 class TestListRooms:
     def test_list_rooms_returns_user_rooms(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[{"room_id": "room-1"}]
-        )
-        mock_supabase.table.return_value.select.return_value.in_.return_value.order.return_value.execute.return_value = MagicMock(
+        mock_supabase.table.return_value.select.return_value.order.return_value.execute.return_value = MagicMock(
             data=[FAKE_ROOM]
         )
 
@@ -22,7 +19,7 @@ class TestListRooms:
         assert data[0]["name"] == "General"
 
     def test_list_rooms_empty(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+        mock_supabase.table.return_value.select.return_value.order.return_value.execute.return_value = MagicMock(
             data=[]
         )
 
@@ -59,7 +56,7 @@ class TestCreateRoom:
 class TestUpdateRoom:
     def test_update_room_success(self, authenticated_client, mock_supabase):
         updated = {**FAKE_ROOM, "name": "Renamed"}
-        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[updated]
         )
 
@@ -78,7 +75,7 @@ class TestUpdateRoom:
         assert response.status_code == 400
 
     def test_update_room_not_found(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        mock_supabase.table.return_value.update.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[]
         )
 
@@ -91,7 +88,7 @@ class TestUpdateRoom:
 
 class TestDeleteRoom:
     def test_delete_room_success(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        mock_supabase.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[FAKE_ROOM]
         )
 
@@ -99,7 +96,7 @@ class TestDeleteRoom:
         assert response.status_code == 204
 
     def test_delete_room_not_found(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        mock_supabase.table.return_value.delete.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[]
         )
 
@@ -112,11 +109,6 @@ class TestDeleteRoom:
 
 class TestListMessages:
     def test_list_messages_success(self, authenticated_client, mock_supabase):
-        # membership check
-        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[FAKE_MEMBER]
-        )
-        # messages query
         mock_supabase.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
             data=[FAKE_MESSAGE]
         )
@@ -134,11 +126,6 @@ class TestListMessages:
 
 class TestCreateMessage:
     def test_create_message_success(self, authenticated_client, mock_supabase):
-        # membership check
-        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[FAKE_MEMBER]
-        )
-        # insert
         mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock(
             data=[FAKE_MESSAGE]
         )
@@ -153,12 +140,8 @@ class TestCreateMessage:
 
 class TestUpdateMessage:
     def test_update_message_success(self, authenticated_client, mock_supabase):
-        # membership check
-        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[FAKE_MEMBER]
-        )
         updated = {**FAKE_MESSAGE, "content": "Edited"}
-        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[updated]
         )
 
@@ -170,11 +153,6 @@ class TestUpdateMessage:
         assert response.json()["content"] == "Edited"
 
     def test_update_message_empty_body_returns_400(self, authenticated_client, mock_supabase):
-        # membership check
-        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[FAKE_MEMBER]
-        )
-
         response = authenticated_client.patch(
             "/api/v1/rooms/room-1/messages/msg-1",
             json={},
@@ -184,7 +162,7 @@ class TestUpdateMessage:
 
 class TestDeleteMessage:
     def test_delete_message_success(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[FAKE_MESSAGE]
         )
 
@@ -192,7 +170,7 @@ class TestDeleteMessage:
         assert response.status_code == 204
 
     def test_delete_message_not_found(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+        mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[]
         )
 

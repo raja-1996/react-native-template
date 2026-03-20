@@ -10,13 +10,6 @@ export interface Room {
   updated_at: string;
 }
 
-export interface RoomMember {
-  id: string;
-  room_id: string;
-  user_id: string;
-  joined_at: string;
-}
-
 export interface Message {
   id: string;
   room_id: string;
@@ -58,20 +51,6 @@ export const roomsApi = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/rooms/${id}`);
-  },
-
-  listMembers: async (roomId: string): Promise<RoomMember[]> => {
-    const { data } = await api.get(`/rooms/${roomId}/members`);
-    return data;
-  },
-
-  addMember: async (roomId: string, userId: string): Promise<RoomMember> => {
-    const { data } = await api.post(`/rooms/${roomId}/members/${userId}`);
-    return data;
-  },
-
-  removeMember: async (roomId: string, userId: string): Promise<void> => {
-    await api.delete(`/rooms/${roomId}/members/${userId}`);
   },
 };
 
