@@ -9,7 +9,7 @@ Minimal template showcasing Supabase + React Native (Expo) capabilities.
 | 1 | Email signup & login | P0 | Auth |
 | 2 | Logout | P0 | Auth |
 | 3 | Delete account | P0 | Auth |
-| 4 | Notes CRUD | P0 | Data |
+| 4 | Todos CRUD | P0 | Data |
 | 5 | Phone OTP login | P1 | Auth |
 | 6 | Image upload (avatar + gallery) | P1 | Storage |
 | 7 | Realtime playground | P1 | Realtime |
@@ -34,34 +34,34 @@ CREATE TABLE profiles (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- notes (simple CRUD entity)
-CREATE TABLE notes (
+-- todos (simple CRUD entity)
+CREATE TABLE todos (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title      TEXT NOT NULL,
-  content    TEXT DEFAULT '',
+  description TEXT DEFAULT '',
   image_path TEXT,
-  is_done    BOOLEAN DEFAULT false,
+  is_completed BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
 
 -- profiles: read all, update own
 CREATE POLICY profiles_select ON profiles FOR SELECT TO authenticated USING (true);
 CREATE POLICY profiles_update ON profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
 
--- notes: full CRUD, own only
-CREATE POLICY notes_select ON notes FOR SELECT TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY notes_insert ON notes FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
-CREATE POLICY notes_update ON notes FOR UPDATE TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY notes_delete ON notes FOR DELETE TO authenticated USING (auth.uid() = user_id);
+-- todos: full CRUD, own only
+CREATE POLICY todos_select ON todos FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY todos_insert ON todos FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY todos_update ON todos FOR UPDATE TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY todos_delete ON todos FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- indexes
-CREATE INDEX idx_notes_user ON notes(user_id, created_at DESC);
+CREATE INDEX idx_todos_user ON todos(user_id, created_at DESC);
 
 -- auto-create profile on signup
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -86,14 +86,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER notes_updated_at BEFORE UPDATE ON notes
+CREATE TRIGGER todos_updated_at BEFORE UPDATE ON todos
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER profiles_updated_at BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- enable realtime on notes
-ALTER PUBLICATION supabase_realtime ADD TABLE notes;
+-- enable realtime on todos
+ALTER PUBLICATION supabase_realtime ADD TABLE todos;
 ```
 
 ### 1.2 Supabase Config
@@ -122,13 +122,13 @@ backend/
 │   ├── schemas/
 │   │   ├── __init__.py
 │   │   ├── auth.py            # LoginRequest, SignUpRequest, AuthResponse, OTPRequest
-│   │   ├── notes.py           # NoteCreate, NoteUpdate, NoteResponse
+│   │   ├── todos.py           # TodoCreate, TodoUpdate, TodoResponse
 │   │   └── storage.py         # UploadResponse, DownloadResponse
 │   └── api/v1/
 │       ├── __init__.py
-│       ├── router.py          # Aggregates auth, notes, storage
+│       ├── router.py          # Aggregates auth, todos, storage
 │       ├── auth.py            # signup, login, phone_otp, verify_otp, refresh, logout, delete_account
-│       ├── notes.py           # CRUD for notes
+│       ├── todos.py           # CRUD for todos
 │       └── storage.py         # upload, download, delete
 ├── pyproject.toml
 ├── Dockerfile
@@ -147,15 +147,15 @@ backend/
 | `/api/v1/auth/logout` | POST | Bearer | Invalidate session |
 | `/api/v1/auth/account` | DELETE | Bearer | Delete user account |
 
-### 1.5 Backend — Notes Endpoints
+### 1.5 Backend — Todos Endpoints
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/v1/notes` | GET | Bearer | List user's notes |
-| `/api/v1/notes` | POST | Bearer | Create note |
-| `/api/v1/notes/{id}` | GET | Bearer | Get single note |
-| `/api/v1/notes/{id}` | PATCH | Bearer | Update note (title, content, is_done, image_path) |
-| `/api/v1/notes/{id}` | DELETE | Bearer | Delete note |
+| `/api/v1/todos` | GET | Bearer | List user's todos |
+| `/api/v1/todos` | POST | Bearer | Create todo |
+| `/api/v1/todos/{id}` | GET | Bearer | Get single todo |
+| `/api/v1/todos/{id}` | PATCH | Bearer | Update todo (title, description, is_completed, image_path) |
+| `/api/v1/todos/{id}` | DELETE | Bearer | Delete todo |
 
 ### 1.6 Backend — Storage Endpoints
 
@@ -200,7 +200,7 @@ app/src/components/
 ├── themed-view.tsx     # Theme-aware View
 ├── button.tsx          # Styled pressable button
 ├── input.tsx           # Styled TextInput with label + error
-└── note-card.tsx       # Note list item (swipe to delete optional)
+└── todo-card.tsx       # Todo list item with checkbox + swipe to delete
 ```
 
 ---
@@ -242,9 +242,9 @@ app/src/app/
 │   ├── signup.tsx               # Email + password form
 │   └── phone-login.tsx          # Phone number input → OTP verification
 └── (app)/
-    ├── _layout.tsx              # Bottom tabs: Notes, Realtime, Settings
-    ├── notes.tsx                # Notes list + FAB to create
-    ├── note-detail.tsx          # Create/edit note (title, content, image)
+    ├── _layout.tsx              # Bottom tabs: Todos, Realtime, Settings
+    ├── todos.tsx                # Todos list + FAB to create
+    ├── todo-detail.tsx          # Create/edit todo (title, description, image)
     ├── realtime.tsx             # Realtime playground
     └── settings.tsx             # Profile, avatar, logout, delete account
 ```
@@ -265,42 +265,57 @@ app/src/app/
 - Step 2: Enter 6-digit OTP → "Verify" button
 - Auto-login after successful verification
 
----
-
-## Phase 4 — Notes CRUD
-
-### 4.1 Service Layer (`services/notes-service.ts`)
+### 3.6 Auth Service (`services/auth-service.ts`)
 
 ```typescript
-const notesService = {
-  list: () => api.get<Note[]>('/notes'),
-  get: (id: string) => api.get<Note>(`/notes/${id}`),
-  create: (data: NoteCreate) => api.post<Note>('/notes', data),
-  update: (id: string, data: NoteUpdate) => api.patch<Note>(`/notes/${id}`, data),
-  delete: (id: string) => api.delete(`/notes/${id}`),
+const authService = {
+  signup: (data: { email: string; password: string }) => api.post('/auth/signup', data),
+  login: (data: { email: string; password: string }) => api.post('/auth/login', data),
+  sendPhoneOtp: (phone: string) => api.post('/auth/phone/send-otp', { phone }),
+  verifyPhoneOtp: (phone: string, otp: string) => api.post('/auth/phone/verify-otp', { phone, otp }),
+  refresh: (refreshToken: string) => api.post('/auth/refresh', { refresh_token: refreshToken }),
+  logout: () => api.post('/auth/logout'),
+  deleteAccount: () => api.delete('/auth/account'),
 };
 ```
 
-### 4.2 TanStack Query Hooks (`hooks/use-notes.ts`)
+---
+
+## Phase 4 — Todos CRUD
+
+### 4.1 Service Layer (`services/todos-service.ts`)
 
 ```typescript
-useNotes()           // queryKey: ['notes']
-useNote(id)          // queryKey: ['notes', id]
-useCreateNote()      // invalidates ['notes']
-useUpdateNote()      // invalidates ['notes']
-useDeleteNote()      // invalidates ['notes']
+const todosService = {
+  list: () => api.get<Todo[]>('/todos'),
+  get: (id: string) => api.get<Todo>(`/todos/${id}`),
+  create: (data: TodoCreate) => api.post<Todo>('/todos', data),
+  update: (id: string, data: TodoUpdate) => api.patch<Todo>(`/todos/${id}`, data),
+  delete: (id: string) => api.delete(`/todos/${id}`),
+};
 ```
 
-### 4.3 Notes List Screen
+### 4.2 TanStack Query Hooks (`hooks/use-todos.ts`)
+
+```typescript
+useTodos()           // queryKey: ['todos']
+useTodo(id)          // queryKey: ['todos', id]
+useCreateTodo()      // invalidates ['todos']
+useUpdateTodo()      // invalidates ['todos']
+useDeleteTodo()      // invalidates ['todos']
+```
+
+### 4.3 Todos List Screen
 - FlatList with pull-to-refresh
-- Each note shows title, preview of content, done status, timestamp
-- Tap → navigate to note-detail
-- FAB (floating action button) → create new note
+- Each todo shows title, description preview, completed checkbox, timestamp
+- Tap checkbox → toggle completed (inline PATCH)
+- Tap todo → navigate to todo-detail
+- FAB (floating action button) → create new todo
 - Swipe-to-delete or long-press menu
 
-### 4.4 Note Detail Screen
-- Title input, multiline content input
-- Toggle "done" status
+### 4.4 Todo Detail Screen
+- Title input, multiline description input
+- Toggle "completed" status
 - Image attachment (pick from gallery via expo-image-picker)
 - Save / Delete buttons
 
@@ -323,10 +338,10 @@ const storageService = {
 - Upload to storage → update profile `avatar_url`
 - Display with `expo-image` (cached)
 
-### 5.3 Note Image Attachment
-- "Attach Image" button in note-detail
-- Pick image → upload → save `image_path` on note
-- Display image in note detail and as thumbnail in list
+### 5.3 Todo Image Attachment
+- "Attach Image" button in todo-detail
+- Pick image → upload → save `image_path` on todo
+- Display image in todo detail and as thumbnail in list
 
 ---
 
@@ -336,14 +351,14 @@ const storageService = {
 
 A dedicated screen demonstrating Supabase Realtime features:
 
-1. **Live Notes Feed** — subscribe to `postgres_changes` on `notes` table, show inserts/updates/deletes in real-time log
+1. **Live Todos Feed** — subscribe to `postgres_changes` on `todos` table, show inserts/updates/deletes in real-time log
 2. **Presence** — show online users count using Supabase `presence` channel
 3. **Broadcast Counter** — shared counter that any user can increment, broadcast to all via `broadcast` channel
 
 ```typescript
 // postgres_changes subscription
-supabase.channel('notes-changes')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, payload => {
+supabase.channel('todos-changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, payload => {
     addToLog(`${payload.eventType}: ${payload.new?.title || payload.old?.id}`);
   })
   .subscribe();
@@ -400,7 +415,7 @@ async function registerForPushNotifications() {
 ## Phase 8 — Polish
 
 ### 8.1 Navigation
-- Bottom tabs: **Notes** | **Realtime** | **Settings**
+- Bottom tabs: **Todos** | **Realtime** | **Settings**
 - Tab icons (Expo vector icons or simple emoji fallback)
 
 ### 8.2 Settings Screen
@@ -434,12 +449,12 @@ async function registerForPushNotifications() {
 1. **Supabase** — migrations + config
 2. **Backend core** — config, auth dep, supabase factory
 3. **Backend auth** — signup, login, phone OTP, logout, delete
-4. **Backend notes** — CRUD endpoints
+4. **Backend todos** — CRUD endpoints
 5. **Backend storage** — upload/download/delete
 6. **Frontend foundation** — package.json, lib layer, theme, components
 7. **Auth store + screens** — login, signup, phone login
-8. **Notes screens** — list + detail with CRUD
-9. **Image upload** — avatar + note attachments
+8. **Todos screens** — list + detail with CRUD
+9. **Image upload** — avatar + todo attachments
 10. **Realtime playground** — live demo screen
 11. **Push notifications** — registration + handling
 12. **Settings screen** — profile, logout, delete account
