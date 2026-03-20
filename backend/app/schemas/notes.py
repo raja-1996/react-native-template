@@ -20,13 +20,6 @@ class RoomResponse(BaseModel):
     updated_at: str
 
 
-class RoomMemberResponse(BaseModel):
-    id: str
-    room_id: str
-    user_id: str
-    joined_at: str
-
-
 # --- Messages ---
 
 

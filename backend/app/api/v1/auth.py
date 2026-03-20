@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.auth import get_current_user
-from app.core.supabase import get_supabase, get_supabase_anon
+from app.core.supabase import get_supabase
 from app.schemas.auth import (
     AuthResponse,
     LoginRequest,
@@ -26,7 +26,7 @@ def _build_auth_response(session) -> AuthResponse:
 
 @router.post("/signup", response_model=AuthResponse)
 async def signup(data: SignUpRequest):
-    supabase = get_supabase_anon()
+    supabase = get_supabase()
     try:
         response = supabase.auth.sign_up(
             {"email": data.email, "password": data.password}
@@ -47,7 +47,7 @@ async def signup(data: SignUpRequest):
 
 @router.post("/login", response_model=AuthResponse)
 async def login(data: LoginRequest):
-    supabase = get_supabase_anon()
+    supabase = get_supabase()
     try:
         response = supabase.auth.sign_in_with_password(
             {"email": data.email, "password": data.password}
@@ -61,7 +61,7 @@ async def login(data: LoginRequest):
 
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh(data: RefreshRequest):
-    supabase = get_supabase_anon()
+    supabase = get_supabase()
     try:
         response = supabase.auth.refresh_session(data.refresh_token)
         return _build_auth_response(response.session)
@@ -78,7 +78,7 @@ async def logout():
 
 @router.post("/password-reset")
 async def request_password_reset(data: PasswordResetRequest):
-    supabase = get_supabase_anon()
+    supabase = get_supabase()
     try:
         supabase.auth.reset_password_email(data.email)
         return {"message": "Password reset email sent"}
@@ -90,7 +90,7 @@ async def request_password_reset(data: PasswordResetRequest):
 
 @router.post("/password-reset/confirm")
 async def confirm_password_reset(data: PasswordResetConfirm):
-    supabase = get_supabase_anon()
+    supabase = get_supabase()
     try:
         supabase.auth.update_user(
             data.access_token,

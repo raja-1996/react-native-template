@@ -1,7 +1,5 @@
 from unittest.mock import MagicMock
 
-from tests.conftest import FAKE_USER
-
 
 class TestSignup:
     def test_signup_success(self, authenticated_client, mock_supabase):

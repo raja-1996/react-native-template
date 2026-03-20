@@ -1,14 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.auth import get_current_user
-from app.core.supabase import get_supabase
+from app.core.supabase import get_user_supabase
 from app.schemas.notes import (
     MessageCreate,
     MessageResponse,
     MessageUpdate,
     PaginatedMessages,
     RoomCreate,
-    RoomMemberResponse,
     RoomResponse,
     RoomUpdate,
 )
@@ -24,20 +23,10 @@ PAGE_SIZE = 30
 
 @rooms_router.get("", response_model=list[RoomResponse])
 async def list_rooms(user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
-    memberships = (
-        supabase.table("room_members")
-        .select("room_id")
-        .eq("user_id", user["id"])
-        .execute()
-    )
-    room_ids = [m["room_id"] for m in memberships.data]
-    if not room_ids:
-        return []
+    supabase = get_user_supabase(user["token"])
     response = (
         supabase.table("rooms")
         .select("*")
-        .in_("id", room_ids)
         .order("updated_at", desc=True)
         .execute()
     )
@@ -46,24 +35,18 @@ async def list_rooms(user: dict = Depends(get_current_user)):
 
 @rooms_router.post("", response_model=RoomResponse, status_code=status.HTTP_201_CREATED)
 async def create_room(data: RoomCreate, user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
+    supabase = get_user_supabase(user["token"])
     response = (
         supabase.table("rooms")
         .insert({"name": data.name, "created_by": user["id"]})
         .execute()
     )
-    room = response.data[0]
-    # Add creator as member
-    supabase.table("room_members").insert(
-        {"room_id": room["id"], "user_id": user["id"]}
-    ).execute()
-    return room
+    return response.data[0]
 
 
 @rooms_router.get("/{room_id}", response_model=RoomResponse)
 async def get_room(room_id: str, user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
-    _verify_membership(supabase, room_id, user["id"])
+    supabase = get_user_supabase(user["token"])
     response = (
         supabase.table("rooms")
         .select("*")
@@ -78,7 +61,7 @@ async def get_room(room_id: str, user: dict = Depends(get_current_user)):
 
 @rooms_router.patch("/{room_id}", response_model=RoomResponse)
 async def update_room(room_id: str, data: RoomUpdate, user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
+    supabase = get_user_supabase(user["token"])
     update_data = data.model_dump(exclude_none=True)
     if not update_data:
         raise HTTPException(
@@ -88,7 +71,6 @@ async def update_room(room_id: str, data: RoomUpdate, user: dict = Depends(get_c
         supabase.table("rooms")
         .update(update_data)
         .eq("id", room_id)
-        .eq("created_by", user["id"])
         .execute()
     )
     if not response.data:
@@ -98,65 +80,15 @@ async def update_room(room_id: str, data: RoomUpdate, user: dict = Depends(get_c
 
 @rooms_router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_room(room_id: str, user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
+    supabase = get_user_supabase(user["token"])
     response = (
         supabase.table("rooms")
         .delete()
         .eq("id", room_id)
-        .eq("created_by", user["id"])
         .execute()
     )
     if not response.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
-
-
-# ---- Room Members ----
-
-
-@rooms_router.get("/{room_id}/members", response_model=list[RoomMemberResponse])
-async def list_members(room_id: str, user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
-    _verify_membership(supabase, room_id, user["id"])
-    response = (
-        supabase.table("room_members")
-        .select("*")
-        .eq("room_id", room_id)
-        .execute()
-    )
-    return response.data
-
-
-@rooms_router.post(
-    "/{room_id}/members/{member_user_id}",
-    response_model=RoomMemberResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def add_member(room_id: str, member_user_id: str, user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
-    _verify_membership(supabase, room_id, user["id"])
-    response = (
-        supabase.table("room_members")
-        .insert({"room_id": room_id, "user_id": member_user_id})
-        .execute()
-    )
-    return response.data[0]
-
-
-@rooms_router.delete(
-    "/{room_id}/members/{member_user_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def remove_member(room_id: str, member_user_id: str, user: dict = Depends(get_current_user)):
-    supabase = get_supabase()
-    # Only allow removing self or room creator removing others
-    room = supabase.table("rooms").select("created_by").eq("id", room_id).single().execute()
-    if not room.data:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
-    if member_user_id != user["id"] and room.data["created_by"] != user["id"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
-    supabase.table("room_members").delete().eq("room_id", room_id).eq(
-        "user_id", member_user_id
-    ).execute()
 
 
 # ---- Messages ----
@@ -169,8 +101,7 @@ async def list_messages(
     limit: int = Query(PAGE_SIZE, le=100),
     user: dict = Depends(get_current_user),
 ):
-    supabase = get_supabase()
-    _verify_membership(supabase, room_id, user["id"])
+    supabase = get_user_supabase(user["token"])
     query = (
         supabase.table("messages")
         .select("*")
@@ -193,8 +124,7 @@ async def list_messages(
 async def create_message(
     room_id: str, data: MessageCreate, user: dict = Depends(get_current_user)
 ):
-    supabase = get_supabase()
-    _verify_membership(supabase, room_id, user["id"])
+    supabase = get_user_supabase(user["token"])
     response = (
         supabase.table("messages")
         .insert({
@@ -212,7 +142,7 @@ async def create_message(
 async def update_message(
     room_id: str, message_id: str, data: MessageUpdate, user: dict = Depends(get_current_user)
 ):
-    supabase = get_supabase()
+    supabase = get_user_supabase(user["token"])
     update_data = data.model_dump(exclude_none=True)
     if not update_data:
         raise HTTPException(
@@ -223,7 +153,6 @@ async def update_message(
         .update(update_data)
         .eq("id", message_id)
         .eq("room_id", room_id)
-        .eq("user_id", user["id"])
         .execute()
     )
     if not response.data:
@@ -235,31 +164,13 @@ async def update_message(
 async def delete_message(
     room_id: str, message_id: str, user: dict = Depends(get_current_user)
 ):
-    supabase = get_supabase()
+    supabase = get_user_supabase(user["token"])
     response = (
         supabase.table("messages")
         .delete()
         .eq("id", message_id)
         .eq("room_id", room_id)
-        .eq("user_id", user["id"])
         .execute()
     )
     if not response.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
-
-
-# ---- Helpers ----
-
-
-def _verify_membership(supabase, room_id: str, user_id: str):
-    membership = (
-        supabase.table("room_members")
-        .select("id")
-        .eq("room_id", room_id)
-        .eq("user_id", user_id)
-        .execute()
-    )
-    if not membership.data:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not a member of this room"
-        )
