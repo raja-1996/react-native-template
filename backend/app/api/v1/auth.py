@@ -29,7 +29,14 @@ async def signup(data: SignUpRequest):
         supabase = get_supabase()
         response = supabase.auth.sign_up({"email": data.email, "password": data.password})
         if not response.session:
-            raise HTTPException(status_code=400, detail="Signup failed")
+            # Email confirmation may be required — return success message
+            return {
+                "access_token": "",
+                "refresh_token": "",
+                "token_type": "bearer",
+                "expires_in": 0,
+                "user": {"id": str(response.user.id) if response.user else "", "email": data.email},
+            }
         return _build_auth_response(response.session)
     except HTTPException:
         raise
@@ -92,8 +99,9 @@ async def refresh(data: RefreshRequest):
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(user: dict = Depends(get_current_user)):
     try:
-        supabase = get_supabase()
-        supabase.auth.admin.sign_out(user["token"])
+        from app.core.supabase import get_user_supabase
+        user_client = get_user_supabase(user["token"])
+        user_client.auth.sign_out()
     except Exception:
         pass
 

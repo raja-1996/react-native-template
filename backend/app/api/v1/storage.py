@@ -24,13 +24,13 @@ async def upload_file(
 
     content = await file.read()
     try:
-        supabase.storage.from_(BUCKET_NAME).upload(path, content, {"content-type": file.content_type or "application/octet-stream"})
+        supabase.storage.from_(BUCKET_NAME).upload(path, content, {"contentType": file.content_type or "application/octet-stream"})
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     # Get signed URL
     signed = supabase.storage.from_(BUCKET_NAME).create_signed_url(path, 3600)
-    url = signed.get("signedURL", "") if isinstance(signed, dict) else ""
+    url = getattr(signed, "signed_url", "") or (signed.get("signedURL", "") if isinstance(signed, dict) else "")
 
     return {"path": path, "url": url}
 
@@ -40,7 +40,7 @@ async def download_file(path: str, user: dict = Depends(get_current_user)):
     supabase = get_user_supabase(user["token"])
     try:
         signed = supabase.storage.from_(BUCKET_NAME).create_signed_url(path, 3600)
-        url = signed.get("signedURL", "") if isinstance(signed, dict) else ""
+        url = getattr(signed, "signed_url", "") or (signed.get("signedURL", "") if isinstance(signed, dict) else "")
         return {"url": url}
     except Exception as e:
         raise HTTPException(status_code=404, detail="File not found")
