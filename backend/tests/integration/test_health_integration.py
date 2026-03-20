@@ -19,4 +19,4 @@ class TestHealthIntegration:
         schema = resp.json()
         assert "paths" in schema
         assert "/api/v1/auth/signup" in schema["paths"]
-        assert "/api/v1/notes" in schema["paths"]
+        assert "/api/v1/rooms" in schema["paths"]
