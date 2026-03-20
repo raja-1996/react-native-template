@@ -1,10 +1,10 @@
 """Integration tests for the storage endpoints against a real Supabase instance."""
 
 import pytest
-from tests.integration.conftest import requires_infra
+from tests.integration.conftest import requires_infra, requires_notes_table
 
 
-pytestmark = requires_infra
+pytestmark = [requires_infra, requires_notes_table]
 
 
 class TestStorageLifecycle:

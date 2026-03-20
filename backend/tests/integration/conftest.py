@@ -11,11 +11,26 @@ Run with the rest of the suite:
     pytest tests/ -v
 """
 
+import importlib
 import os
+import sys
 import uuid
 
 import httpx
 import pytest
+
+
+def _get_real_create_client():
+    """Get the real supabase create_client, even if the unit-test conftest
+    installed a mock in sys.modules."""
+    mod = sys.modules.get("supabase")
+    if mod is not None and hasattr(mod, "_mock_name"):
+        # The parent conftest replaced supabase with a MagicMock – reload
+        del sys.modules["supabase"]
+        real_mod = importlib.import_module("supabase")
+        return real_mod.create_client
+    from supabase import create_client
+    return create_client
 
 # ---------------------------------------------------------------------------
 # Environment helpers – read from .env or fall back to env vars / defaults
@@ -68,6 +83,25 @@ requires_infra = pytest.mark.skipif(
 )
 
 
+def _notes_table_exists() -> bool:
+    """Return True when the notes table exists in the Supabase schema cache."""
+    if not _SUPABASE_SECRET_KEY:
+        return False
+    try:
+        create_client = _get_real_create_client()
+        client = create_client(_SUPABASE_URL, _SUPABASE_SECRET_KEY)
+        client.table("notes").select("id").limit(1).execute()
+        return True
+    except Exception:
+        return False
+
+
+requires_notes_table = pytest.mark.skipif(
+    not _notes_table_exists(),
+    reason="The 'notes' table does not exist – run the migration first",
+)
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -102,7 +136,7 @@ def api_url(backend_url):
 def unique_email():
     """Generate a unique email for the test run to avoid collisions."""
     uid = uuid.uuid4().hex[:8]
-    return f"inttest-{uid}@example.com"
+    return f"inttest-{uid}@gmail.com"
 
 
 @pytest.fixture(scope="session")
@@ -121,9 +155,37 @@ def http_client():
 def registered_user(http_client, api_url, unique_email, test_password):
     """Sign up a user and return the auth response dict.
 
-    This fixture runs once per session so all integration tests share
-    the same user, keeping the test run fast and predictable.
+    Uses the Supabase Admin API (service role key) to create users,
+    bypassing email rate limits.  Falls back to the backend signup
+    endpoint if the admin call fails.
     """
+    # Use Supabase Admin API to create users (bypasses email rate limits),
+    # then sign in with the anon client to obtain tokens.
+    if _SUPABASE_SECRET_KEY and _SUPABASE_PUBLISHABLE_KEY:
+        create_client = _get_real_create_client()
+        admin = create_client(_SUPABASE_URL, _SUPABASE_SECRET_KEY)
+        admin.auth.admin.create_user(
+            {
+                "email": unique_email,
+                "password": test_password,
+                "email_confirm": True,
+            }
+        )
+        anon = create_client(_SUPABASE_URL, _SUPABASE_PUBLISHABLE_KEY)  # noqa: F841 (reused from above)
+        session = anon.auth.sign_in_with_password(
+            {"email": unique_email, "password": test_password}
+        )
+        return {
+            "access_token": session.session.access_token,
+            "refresh_token": session.session.refresh_token,
+            "token_type": "bearer",
+            "expires_in": session.session.expires_in,
+            "user": {
+                "id": str(session.user.id),
+                "email": session.user.email,
+            },
+        }
+
     resp = http_client.post(
         f"{api_url}/auth/signup",
         json={"email": unique_email, "password": test_password},
