@@ -4,8 +4,9 @@ import React from "react";
 export default function AppLayout() {
   return (
     <Stack>
-      <Stack.Screen name="notes" options={{ title: "My Notes" }} />
-      <Stack.Screen name="note-editor" options={{ title: "Note" }} />
+      <Stack.Screen name="rooms" options={{ title: "Rooms" }} />
+      <Stack.Screen name="chat" options={{ title: "Chat" }} />
+      <Stack.Screen name="settings" options={{ title: "Settings" }} />
     </Stack>
   );
 }

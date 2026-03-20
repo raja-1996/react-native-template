@@ -36,14 +36,14 @@ describe("Index (Auth Guard)", () => {
     expect(UNSAFE_queryByType(ActivityIndicator)).toBeTruthy();
   });
 
-  it("should redirect to notes when authenticated", () => {
+  it("should redirect to rooms when authenticated", () => {
     mockedUseAuthStore.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
     });
 
     const { getByTestId } = render(<Index />);
-    expect(getByTestId("redirect").props.children).toBe("/(app)/notes");
+    expect(getByTestId("redirect").props.children).toBe("/(app)/rooms");
   });
 
   it("should redirect to login when not authenticated", () => {

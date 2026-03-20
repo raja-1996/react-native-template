@@ -83,22 +83,22 @@ requires_infra = pytest.mark.skipif(
 )
 
 
-def _notes_table_exists() -> bool:
-    """Return True when the notes table exists in the Supabase schema cache."""
+def _rooms_table_exists() -> bool:
+    """Return True when the rooms table exists in the Supabase schema cache."""
     if not _SUPABASE_SECRET_KEY:
         return False
     try:
         create_client = _get_real_create_client()
         client = create_client(_SUPABASE_URL, _SUPABASE_SECRET_KEY)
-        client.table("notes").select("id").limit(1).execute()
+        client.table("rooms").select("id").limit(1).execute()
         return True
     except Exception:
         return False
 
 
-requires_notes_table = pytest.mark.skipif(
-    not _notes_table_exists(),
-    reason="The 'notes' table does not exist – run the migration first",
+requires_rooms_table = pytest.mark.skipif(
+    not _rooms_table_exists(),
+    reason="The 'rooms' table does not exist – run the migration first",
 )
 
 
@@ -153,14 +153,7 @@ def http_client():
 
 @pytest.fixture(scope="session")
 def registered_user(http_client, api_url, unique_email, test_password):
-    """Sign up a user and return the auth response dict.
-
-    Uses the Supabase Admin API (service role key) to create users,
-    bypassing email rate limits.  Falls back to the backend signup
-    endpoint if the admin call fails.
-    """
-    # Use Supabase Admin API to create users (bypasses email rate limits),
-    # then sign in with the anon client to obtain tokens.
+    """Sign up a user and return the auth response dict."""
     if _SUPABASE_SECRET_KEY and _SUPABASE_PUBLISHABLE_KEY:
         create_client = _get_real_create_client()
         admin = create_client(_SUPABASE_URL, _SUPABASE_SECRET_KEY)
@@ -171,7 +164,7 @@ def registered_user(http_client, api_url, unique_email, test_password):
                 "email_confirm": True,
             }
         )
-        anon = create_client(_SUPABASE_URL, _SUPABASE_PUBLISHABLE_KEY)  # noqa: F841 (reused from above)
+        anon = create_client(_SUPABASE_URL, _SUPABASE_PUBLISHABLE_KEY)
         session = anon.auth.sign_in_with_password(
             {"email": unique_email, "password": test_password}
         )

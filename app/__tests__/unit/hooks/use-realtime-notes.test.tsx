@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react-native";
 import React from "react";
 
-import { useRealtimeNotes } from "@/hooks/use-realtime-notes";
+import { useRealtimeMessages } from "@/hooks/use-realtime-notes";
 import { supabase } from "@/lib/supabase";
 
 jest.mock("@/lib/supabase", () => {
@@ -36,30 +36,36 @@ function createWrapper() {
   );
 }
 
-describe("useRealtimeNotes", () => {
+describe("useRealtimeMessages", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("should subscribe to notes-changes channel on mount", () => {
-    renderHook(() => useRealtimeNotes(), { wrapper: createWrapper() });
+  it("should subscribe to messages channel on mount", () => {
+    renderHook(() => useRealtimeMessages("room-1"), { wrapper: createWrapper() });
 
-    expect(supabase.channel).toHaveBeenCalledWith("notes-changes");
+    expect(supabase.channel).toHaveBeenCalledWith("messages-room-1");
     expect(mockedSupabase.__mockChannel.on).toHaveBeenCalledWith(
       "postgres_changes",
-      { event: "*", schema: "public", table: "notes" },
+      { event: "*", schema: "public", table: "messages", filter: "room_id=eq.room-1" },
       expect.any(Function)
     );
     expect(mockedSupabase.__mockChannel.subscribe).toHaveBeenCalled();
   });
 
   it("should unsubscribe on unmount", () => {
-    const { unmount } = renderHook(() => useRealtimeNotes(), {
+    const { unmount } = renderHook(() => useRealtimeMessages("room-1"), {
       wrapper: createWrapper(),
     });
 
     unmount();
 
     expect(supabase.removeChannel).toHaveBeenCalled();
+  });
+
+  it("should not subscribe when roomId is empty", () => {
+    renderHook(() => useRealtimeMessages(""), { wrapper: createWrapper() });
+
+    expect(supabase.channel).not.toHaveBeenCalled();
   });
 });

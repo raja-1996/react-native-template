@@ -1,137 +1,200 @@
 from unittest.mock import MagicMock
 
-from tests.conftest import FAKE_NOTE, FAKE_USER
+from tests.conftest import FAKE_MEMBER, FAKE_MESSAGE, FAKE_ROOM, FAKE_USER
 
 
-class TestListNotes:
-    def test_list_notes_returns_user_notes(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(
-            data=[FAKE_NOTE]
+# ---- Rooms ----
+
+
+class TestListRooms:
+    def test_list_rooms_returns_user_rooms(self, authenticated_client, mock_supabase):
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[{"room_id": "room-1"}]
+        )
+        mock_supabase.table.return_value.select.return_value.in_.return_value.order.return_value.execute.return_value = MagicMock(
+            data=[FAKE_ROOM]
         )
 
-        response = authenticated_client.get("/api/v1/notes")
+        response = authenticated_client.get("/api/v1/rooms")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 1
-        assert data[0]["id"] == "note-1"
-        assert data[0]["title"] == "Test Note"
+        assert data[0]["name"] == "General"
 
-    def test_list_notes_empty(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value = MagicMock(
+    def test_list_rooms_empty(self, authenticated_client, mock_supabase):
+        mock_supabase.table.return_value.select.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[]
         )
 
-        response = authenticated_client.get("/api/v1/notes")
+        response = authenticated_client.get("/api/v1/rooms")
         assert response.status_code == 200
         assert response.json() == []
 
-    def test_list_notes_requires_auth(self, client):
-        response = client.get("/api/v1/notes")
+    def test_list_rooms_requires_auth(self, client):
+        response = client.get("/api/v1/rooms")
         assert response.status_code == 401
 
 
-class TestGetNote:
-    def test_get_note_success(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
-            data=FAKE_NOTE
-        )
-
-        response = authenticated_client.get("/api/v1/notes/note-1")
-        assert response.status_code == 200
-        assert response.json()["id"] == "note-1"
-
-    def test_get_note_not_found(self, authenticated_client, mock_supabase):
-        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.single.return_value.execute.return_value = MagicMock(
-            data=None
-        )
-
-        response = authenticated_client.get("/api/v1/notes/nonexistent")
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Note not found"
-
-
-class TestCreateNote:
-    def test_create_note_success(self, authenticated_client, mock_supabase):
-        created = {**FAKE_NOTE, "title": "New Note", "content": "Body"}
+class TestCreateRoom:
+    def test_create_room_success(self, authenticated_client, mock_supabase):
         mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock(
-            data=[created]
+            data=[FAKE_ROOM]
         )
 
         response = authenticated_client.post(
-            "/api/v1/notes",
-            json={"title": "New Note", "content": "Body"},
+            "/api/v1/rooms",
+            json={"name": "General"},
         )
         assert response.status_code == 201
-        assert response.json()["title"] == "New Note"
+        assert response.json()["name"] == "General"
 
-    def test_create_note_default_content(self, authenticated_client, mock_supabase):
-        created = {**FAKE_NOTE, "title": "Title Only", "content": ""}
-        mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock(
-            data=[created]
-        )
-
+    def test_create_room_missing_name_returns_422(self, authenticated_client):
         response = authenticated_client.post(
-            "/api/v1/notes",
-            json={"title": "Title Only"},
-        )
-        assert response.status_code == 201
-        assert response.json()["content"] == ""
-
-    def test_create_note_missing_title_returns_422(self, authenticated_client):
-        response = authenticated_client.post(
-            "/api/v1/notes",
-            json={"content": "No title"},
+            "/api/v1/rooms",
+            json={},
         )
         assert response.status_code == 422
 
 
-class TestUpdateNote:
-    def test_update_note_success(self, authenticated_client, mock_supabase):
-        updated = {**FAKE_NOTE, "title": "Updated"}
+class TestUpdateRoom:
+    def test_update_room_success(self, authenticated_client, mock_supabase):
+        updated = {**FAKE_ROOM, "name": "Renamed"}
         mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[updated]
         )
 
         response = authenticated_client.patch(
-            "/api/v1/notes/note-1",
-            json={"title": "Updated"},
+            "/api/v1/rooms/room-1",
+            json={"name": "Renamed"},
         )
         assert response.status_code == 200
-        assert response.json()["title"] == "Updated"
+        assert response.json()["name"] == "Renamed"
 
-    def test_update_note_empty_body_returns_400(self, authenticated_client, mock_supabase):
+    def test_update_room_empty_body_returns_400(self, authenticated_client):
         response = authenticated_client.patch(
-            "/api/v1/notes/note-1",
+            "/api/v1/rooms/room-1",
             json={},
         )
         assert response.status_code == 400
-        assert response.json()["detail"] == "No fields to update"
 
-    def test_update_note_not_found(self, authenticated_client, mock_supabase):
+    def test_update_room_not_found(self, authenticated_client, mock_supabase):
         mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[]
         )
 
         response = authenticated_client.patch(
-            "/api/v1/notes/nonexistent",
-            json={"title": "X"},
+            "/api/v1/rooms/nonexistent",
+            json={"name": "X"},
         )
         assert response.status_code == 404
 
 
-class TestDeleteNote:
-    def test_delete_note_success(self, authenticated_client, mock_supabase):
+class TestDeleteRoom:
+    def test_delete_room_success(self, authenticated_client, mock_supabase):
         mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
-            data=[FAKE_NOTE]
+            data=[FAKE_ROOM]
         )
 
-        response = authenticated_client.delete("/api/v1/notes/note-1")
+        response = authenticated_client.delete("/api/v1/rooms/room-1")
         assert response.status_code == 204
 
-    def test_delete_note_not_found(self, authenticated_client, mock_supabase):
+    def test_delete_room_not_found(self, authenticated_client, mock_supabase):
         mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
             data=[]
         )
 
-        response = authenticated_client.delete("/api/v1/notes/nonexistent")
+        response = authenticated_client.delete("/api/v1/rooms/nonexistent")
+        assert response.status_code == 404
+
+
+# ---- Messages ----
+
+
+class TestListMessages:
+    def test_list_messages_success(self, authenticated_client, mock_supabase):
+        # membership check
+        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[FAKE_MEMBER]
+        )
+        # messages query
+        mock_supabase.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value.execute.return_value = MagicMock(
+            data=[FAKE_MESSAGE]
+        )
+
+        response = authenticated_client.get("/api/v1/rooms/room-1/messages")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["data"]) == 1
+        assert data["has_more"] is False
+
+    def test_list_messages_requires_auth(self, client):
+        response = client.get("/api/v1/rooms/room-1/messages")
+        assert response.status_code == 401
+
+
+class TestCreateMessage:
+    def test_create_message_success(self, authenticated_client, mock_supabase):
+        # membership check
+        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[FAKE_MEMBER]
+        )
+        # insert
+        mock_supabase.table.return_value.insert.return_value.execute.return_value = MagicMock(
+            data=[FAKE_MESSAGE]
+        )
+
+        response = authenticated_client.post(
+            "/api/v1/rooms/room-1/messages",
+            json={"content": "Hello world"},
+        )
+        assert response.status_code == 201
+        assert response.json()["content"] == "Hello world"
+
+
+class TestUpdateMessage:
+    def test_update_message_success(self, authenticated_client, mock_supabase):
+        # membership check
+        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[FAKE_MEMBER]
+        )
+        updated = {**FAKE_MESSAGE, "content": "Edited"}
+        mock_supabase.table.return_value.update.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[updated]
+        )
+
+        response = authenticated_client.patch(
+            "/api/v1/rooms/room-1/messages/msg-1",
+            json={"content": "Edited"},
+        )
+        assert response.status_code == 200
+        assert response.json()["content"] == "Edited"
+
+    def test_update_message_empty_body_returns_400(self, authenticated_client, mock_supabase):
+        # membership check
+        mock_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[FAKE_MEMBER]
+        )
+
+        response = authenticated_client.patch(
+            "/api/v1/rooms/room-1/messages/msg-1",
+            json={},
+        )
+        assert response.status_code == 400
+
+
+class TestDeleteMessage:
+    def test_delete_message_success(self, authenticated_client, mock_supabase):
+        mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[FAKE_MESSAGE]
+        )
+
+        response = authenticated_client.delete("/api/v1/rooms/room-1/messages/msg-1")
+        assert response.status_code == 204
+
+    def test_delete_message_not_found(self, authenticated_client, mock_supabase):
+        mock_supabase.table.return_value.delete.return_value.eq.return_value.eq.return_value.eq.return_value.execute.return_value = MagicMock(
+            data=[]
+        )
+
+        response = authenticated_client.delete("/api/v1/rooms/room-1/messages/nonexistent")
         assert response.status_code == 404

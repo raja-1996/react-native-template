@@ -1,41 +1,175 @@
--- Create notes table
-create table if not exists public.notes (
+-- =============================================
+-- Chat App Schema
+-- =============================================
+
+-- Profiles table (extends auth.users)
+create table if not exists public.profiles (
+    id uuid primary key references auth.users(id) on delete cascade,
+    email text not null,
+    display_name text not null default '',
+    avatar_url text,
+    created_at timestamptz not null default now()
+);
+
+-- Auto-create profile on user signup
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+    insert into public.profiles (id, email, display_name)
+    values (new.id, new.email, split_part(new.email, '@', 1));
+    return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_auth_user_created
+    after insert on auth.users
+    for each row
+    execute function public.handle_new_user();
+
+-- Rooms table
+create table if not exists public.rooms (
     id uuid default gen_random_uuid() primary key,
-    user_id uuid not null references auth.users(id) on delete cascade,
-    title text not null,
-    content text not null default '',
-    attachment_path text,
+    name text not null,
+    created_by uuid not null references auth.users(id) on delete cascade,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
 
--- Index for fast user lookups
-create index if not exists idx_notes_user_id on public.notes(user_id);
+create index if not exists idx_rooms_created_by on public.rooms(created_by);
 
--- Enable RLS
-alter table public.notes enable row level security;
+-- Room members (many-to-many)
+create table if not exists public.room_members (
+    id uuid default gen_random_uuid() primary key,
+    room_id uuid not null references public.rooms(id) on delete cascade,
+    user_id uuid not null references auth.users(id) on delete cascade,
+    joined_at timestamptz not null default now(),
+    unique(room_id, user_id)
+);
 
--- RLS policies: users can only access their own notes
-create policy "Users can select own notes"
-    on public.notes for select
-    using (auth.uid() = user_id);
+create index if not exists idx_room_members_room on public.room_members(room_id);
+create index if not exists idx_room_members_user on public.room_members(user_id);
 
-create policy "Users can insert own notes"
-    on public.notes for insert
+-- Messages table
+create table if not exists public.messages (
+    id uuid default gen_random_uuid() primary key,
+    room_id uuid not null references public.rooms(id) on delete cascade,
+    user_id uuid not null references auth.users(id) on delete cascade,
+    content text not null default '',
+    image_path text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_messages_room on public.messages(room_id, created_at);
+create index if not exists idx_messages_user on public.messages(user_id);
+
+-- Enable RLS on all tables
+alter table public.profiles enable row level security;
+alter table public.rooms enable row level security;
+alter table public.room_members enable row level security;
+alter table public.messages enable row level security;
+
+-- =============================================
+-- RLS Policies
+-- =============================================
+
+-- Profiles: users can read all profiles, update own
+create policy "Anyone can read profiles"
+    on public.profiles for select
+    using (true);
+
+create policy "Users can update own profile"
+    on public.profiles for update
+    using (auth.uid() = id);
+
+-- Rooms: members can read rooms they belong to
+create policy "Members can read rooms"
+    on public.rooms for select
+    using (
+        exists (
+            select 1 from public.room_members
+            where room_id = rooms.id and user_id = auth.uid()
+        )
+    );
+
+create policy "Users can create rooms"
+    on public.rooms for insert
+    with check (auth.uid() = created_by);
+
+create policy "Creator can update room"
+    on public.rooms for update
+    using (auth.uid() = created_by);
+
+create policy "Creator can delete room"
+    on public.rooms for delete
+    using (auth.uid() = created_by);
+
+-- Room members: members can see other members
+create policy "Members can read room members"
+    on public.room_members for select
+    using (
+        exists (
+            select 1 from public.room_members rm
+            where rm.room_id = room_members.room_id and rm.user_id = auth.uid()
+        )
+    );
+
+create policy "Users can join rooms"
+    on public.room_members for insert
     with check (auth.uid() = user_id);
 
-create policy "Users can update own notes"
-    on public.notes for update
+create policy "Users can leave rooms"
+    on public.room_members for delete
     using (auth.uid() = user_id);
 
-create policy "Users can delete own notes"
-    on public.notes for delete
+-- Messages: members can read messages in their rooms
+create policy "Members can read messages"
+    on public.messages for select
+    using (
+        exists (
+            select 1 from public.room_members
+            where room_id = messages.room_id and user_id = auth.uid()
+        )
+    );
+
+create policy "Members can send messages"
+    on public.messages for insert
+    with check (
+        auth.uid() = user_id
+        and exists (
+            select 1 from public.room_members
+            where room_id = messages.room_id and user_id = auth.uid()
+        )
+    );
+
+create policy "Users can update own messages"
+    on public.messages for update
     using (auth.uid() = user_id);
 
--- Service role bypass (for FastAPI service role key)
-create policy "Service role full access"
-    on public.notes for all
+create policy "Users can delete own messages"
+    on public.messages for delete
+    using (auth.uid() = user_id);
+
+-- Service role bypass for all tables
+create policy "Service role full access profiles"
+    on public.profiles for all
     using (auth.role() = 'service_role');
+
+create policy "Service role full access rooms"
+    on public.rooms for all
+    using (auth.role() = 'service_role');
+
+create policy "Service role full access room_members"
+    on public.room_members for all
+    using (auth.role() = 'service_role');
+
+create policy "Service role full access messages"
+    on public.messages for all
+    using (auth.role() = 'service_role');
+
+-- =============================================
+-- Triggers
+-- =============================================
 
 -- Auto-update updated_at
 create or replace function public.update_updated_at()
@@ -46,38 +180,50 @@ begin
 end;
 $$ language plpgsql;
 
-create trigger notes_updated_at
-    before update on public.notes
+create trigger rooms_updated_at
+    before update on public.rooms
     for each row
     execute function public.update_updated_at();
 
--- Enable realtime for notes table
-alter publication supabase_realtime add table public.notes;
+create trigger messages_updated_at
+    before update on public.messages
+    for each row
+    execute function public.update_updated_at();
 
--- Create storage bucket for attachments
+-- =============================================
+-- Realtime
+-- =============================================
+
+alter publication supabase_realtime add table public.messages;
+alter publication supabase_realtime add table public.room_members;
+
+-- =============================================
+-- Storage
+-- =============================================
+
+-- Create storage bucket for chat images
 insert into storage.buckets (id, name, public)
-values ('attachments', 'attachments', false)
+values ('chat-images', 'chat-images', false)
 on conflict (id) do nothing;
 
 -- Storage policies
-create policy "Users can upload own attachments"
+create policy "Users can upload chat images"
     on storage.objects for insert
     with check (
-        bucket_id = 'attachments'
+        bucket_id = 'chat-images'
         and (storage.foldername(name))[1] = auth.uid()::text
     );
 
-create policy "Users can read own attachments"
+create policy "Users can read chat images"
     on storage.objects for select
     using (
-        bucket_id = 'attachments'
-        and (storage.foldername(name))[1] = auth.uid()::text
+        bucket_id = 'chat-images'
     );
 
-create policy "Users can delete own attachments"
+create policy "Users can delete own chat images"
     on storage.objects for delete
     using (
-        bucket_id = 'attachments'
+        bucket_id = 'chat-images'
         and (storage.foldername(name))[1] = auth.uid()::text
     );
 

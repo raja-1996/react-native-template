@@ -9,6 +9,7 @@ jest.mock("@/lib/api", () => ({
   default: {
     get: jest.fn(),
     post: jest.fn(),
+    delete: jest.fn(),
   },
 }));
 
@@ -176,6 +177,37 @@ describe("useAuthStore", () => {
 
       const state = useAuthStore.getState();
       expect(state.isLoading).toBe(false);
+      expect(state.isAuthenticated).toBe(false);
+    });
+  });
+
+  describe("requestPasswordReset", () => {
+    it("should call password reset endpoint", async () => {
+      mockedApi.post.mockResolvedValueOnce({ data: {} });
+
+      await useAuthStore.getState().requestPasswordReset("test@example.com");
+
+      expect(mockedApi.post).toHaveBeenCalledWith("/auth/password-reset", {
+        email: "test@example.com",
+      });
+    });
+  });
+
+  describe("deleteAccount", () => {
+    it("should delete account and clear state", async () => {
+      useAuthStore.setState({
+        user: { id: "user-1", email: "test@example.com" },
+        isAuthenticated: true,
+      });
+      mockedApi.delete.mockResolvedValueOnce({ data: {} });
+
+      await useAuthStore.getState().deleteAccount();
+
+      expect(mockedApi.delete).toHaveBeenCalledWith("/auth/account");
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith("access_token");
+
+      const state = useAuthStore.getState();
+      expect(state.user).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
   });

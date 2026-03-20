@@ -36,7 +36,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       await signup(email, password);
-      router.replace("/(app)/notes");
+      router.replace("/(app)/rooms");
     } catch (e: unknown) {
       const message =
         e instanceof Error ? e.message : "Signup failed";

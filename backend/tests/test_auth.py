@@ -1,8 +1,5 @@
 from unittest.mock import MagicMock
 
-import pytest
-from fastapi import HTTPException
-
 from tests.conftest import FAKE_USER
 
 
@@ -128,3 +125,37 @@ class TestLogout:
         response = authenticated_client.post("/api/v1/auth/logout")
         assert response.status_code == 200
         assert response.json()["message"] == "Logged out — discard tokens client-side"
+
+
+class TestPasswordReset:
+    def test_request_password_reset(self, authenticated_client, mock_supabase):
+        mock_supabase.auth.reset_password_email.return_value = None
+
+        response = authenticated_client.post(
+            "/api/v1/auth/password-reset",
+            json={"email": "user@example.com"},
+        )
+        assert response.status_code == 200
+        assert "sent" in response.json()["message"]
+
+    def test_confirm_password_reset(self, authenticated_client, mock_supabase):
+        mock_supabase.auth.update_user.return_value = None
+
+        response = authenticated_client.post(
+            "/api/v1/auth/password-reset/confirm",
+            json={"access_token": "reset-tok", "new_password": "newpass123"},
+        )
+        assert response.status_code == 200
+        assert "updated" in response.json()["message"]
+
+
+class TestDeleteAccount:
+    def test_delete_account_success(self, authenticated_client, mock_supabase):
+        mock_supabase.auth.admin.delete_user.return_value = None
+
+        response = authenticated_client.delete("/api/v1/auth/account")
+        assert response.status_code == 204
+
+    def test_delete_account_requires_auth(self, client):
+        response = client.delete("/api/v1/auth/account")
+        assert response.status_code == 401

@@ -14,45 +14,38 @@ jest.mock("expo-router", () => ({
 }));
 
 import { router } from "expo-router";
-import { useDeleteNote, useNotes } from "@/hooks/use-notes";
-import { useRealtimeNotes } from "@/hooks/use-realtime-notes";
+import { useCreateRoom, useDeleteRoom, useRooms } from "@/hooks/use-notes";
 import { useAuthStore } from "@/stores/auth-store";
 
 jest.mock("@/hooks/use-notes", () => ({
-  useNotes: jest.fn(),
-  useDeleteNote: jest.fn(),
-}));
-
-jest.mock("@/hooks/use-realtime-notes", () => ({
-  useRealtimeNotes: jest.fn(),
+  useRooms: jest.fn(),
+  useCreateRoom: jest.fn(),
+  useDeleteRoom: jest.fn(),
 }));
 
 jest.mock("@/stores/auth-store", () => ({
   useAuthStore: jest.fn(),
 }));
 
-import NotesScreen from "@/app/(app)/notes";
+import RoomsScreen from "@/app/(app)/rooms";
 
-const mockedUseNotes = useNotes as jest.Mock;
-const mockedUseDeleteNote = useDeleteNote as jest.Mock;
+const mockedUseRooms = useRooms as jest.Mock;
+const mockedUseDeleteRoom = useDeleteRoom as jest.Mock;
+const mockedUseCreateRoom = useCreateRoom as jest.Mock;
 const mockedUseAuthStore = useAuthStore as unknown as jest.Mock;
 
-const mockNotes = [
+const mockRooms = [
   {
-    id: "note-1",
-    user_id: "user-1",
-    title: "First Note",
-    content: "First content",
-    attachment_path: null,
+    id: "room-1",
+    name: "General",
+    created_by: "user-1",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
   },
   {
-    id: "note-2",
-    user_id: "user-1",
-    title: "Second Note",
-    content: "Second content",
-    attachment_path: "uploads/file.pdf",
+    id: "room-2",
+    name: "Random",
+    created_by: "user-1",
     created_at: "2026-01-02T00:00:00Z",
     updated_at: "2026-01-02T00:00:00Z",
   },
@@ -67,41 +60,41 @@ function Wrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-describe("NotesScreen", () => {
+describe("RoomsScreen", () => {
   const mockMutate = jest.fn();
+  const mockMutateAsync = jest.fn();
   const mockLogout = jest.fn();
   const mockRefetch = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedUseDeleteNote.mockReturnValue({ mutate: mockMutate });
+    mockedUseDeleteRoom.mockReturnValue({ mutate: mockMutate });
+    mockedUseCreateRoom.mockReturnValue({ mutateAsync: mockMutateAsync });
     mockedUseAuthStore.mockImplementation(
       (selector: (s: unknown) => unknown) =>
         selector({ logout: mockLogout })
     );
-    (useRealtimeNotes as jest.Mock).mockImplementation(() => {});
   });
 
   it("should show loading indicator when loading", () => {
-    mockedUseNotes.mockReturnValue({
+    mockedUseRooms.mockReturnValue({
       data: undefined,
       isLoading: true,
       refetch: mockRefetch,
     });
 
-    const { getByTestId, UNSAFE_queryByType } = render(
+    const { UNSAFE_queryByType } = render(
       <Wrapper>
-        <NotesScreen />
+        <RoomsScreen />
       </Wrapper>
     );
 
-    // ActivityIndicator should be rendered
     const { ActivityIndicator } = require("react-native");
     expect(UNSAFE_queryByType(ActivityIndicator)).toBeTruthy();
   });
 
-  it("should show empty state when no notes", () => {
-    mockedUseNotes.mockReturnValue({
+  it("should show empty state when no rooms", () => {
+    mockedUseRooms.mockReturnValue({
       data: [],
       isLoading: false,
       refetch: mockRefetch,
@@ -109,33 +102,33 @@ describe("NotesScreen", () => {
 
     const { getByText } = render(
       <Wrapper>
-        <NotesScreen />
+        <RoomsScreen />
       </Wrapper>
     );
 
-    expect(getByText("No notes yet")).toBeTruthy();
-    expect(getByText("Tap + to create your first note")).toBeTruthy();
+    expect(getByText("No rooms yet")).toBeTruthy();
+    expect(getByText("Tap + to create your first chat room")).toBeTruthy();
   });
 
-  it("should render notes list", () => {
-    mockedUseNotes.mockReturnValue({
-      data: mockNotes,
+  it("should render rooms list", () => {
+    mockedUseRooms.mockReturnValue({
+      data: mockRooms,
       isLoading: false,
       refetch: mockRefetch,
     });
 
     const { getByText } = render(
       <Wrapper>
-        <NotesScreen />
+        <RoomsScreen />
       </Wrapper>
     );
 
-    expect(getByText("First Note")).toBeTruthy();
-    expect(getByText("Second Note")).toBeTruthy();
+    expect(getByText("General")).toBeTruthy();
+    expect(getByText("Random")).toBeTruthy();
   });
 
-  it("should navigate to editor when FAB is pressed", () => {
-    mockedUseNotes.mockReturnValue({
+  it("should open modal when FAB is pressed", () => {
+    mockedUseRooms.mockReturnValue({
       data: [],
       isLoading: false,
       refetch: mockRefetch,
@@ -143,19 +136,17 @@ describe("NotesScreen", () => {
 
     const { getByText } = render(
       <Wrapper>
-        <NotesScreen />
+        <RoomsScreen />
       </Wrapper>
     );
 
     fireEvent.press(getByText("+"));
 
-    expect(router.push).toHaveBeenCalledWith({
-      pathname: "/(app)/note-editor",
-    });
+    expect(getByText("New Room")).toBeTruthy();
   });
 
   it("should call logout and redirect when logout is pressed", async () => {
-    mockedUseNotes.mockReturnValue({
+    mockedUseRooms.mockReturnValue({
       data: [],
       isLoading: false,
       refetch: mockRefetch,
@@ -164,7 +155,7 @@ describe("NotesScreen", () => {
 
     const { getByText } = render(
       <Wrapper>
-        <NotesScreen />
+        <RoomsScreen />
       </Wrapper>
     );
 
@@ -176,37 +167,24 @@ describe("NotesScreen", () => {
     });
   });
 
-  it("should delete a note when delete button is pressed", () => {
-    mockedUseNotes.mockReturnValue({
-      data: [mockNotes[0]],
+  it("should navigate to chat when room is pressed", () => {
+    mockedUseRooms.mockReturnValue({
+      data: [mockRooms[0]],
       isLoading: false,
       refetch: mockRefetch,
     });
 
     const { getByText } = render(
       <Wrapper>
-        <NotesScreen />
+        <RoomsScreen />
       </Wrapper>
     );
 
-    fireEvent.press(getByText("×"));
+    fireEvent.press(getByText("General"));
 
-    expect(mockMutate).toHaveBeenCalledWith("note-1");
-  });
-
-  it("should show attachment indicator for notes with attachments", () => {
-    mockedUseNotes.mockReturnValue({
-      data: [mockNotes[1]],
-      isLoading: false,
-      refetch: mockRefetch,
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/(app)/chat",
+      params: { id: "room-1", name: "General" },
     });
-
-    const { getByText } = render(
-      <Wrapper>
-        <NotesScreen />
-      </Wrapper>
-    );
-
-    expect(getByText(/Attachment/)).toBeTruthy();
   });
 });
