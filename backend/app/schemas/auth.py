@@ -11,17 +11,13 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class OTPRequest(BaseModel):
-    phone: str
-
-
-class OTPVerifyRequest(BaseModel):
-    phone: str
-    otp: str
-
-
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class AuthUser(BaseModel):
+    id: str
+    email: str
 
 
 class AuthResponse(BaseModel):
@@ -29,4 +25,5 @@ class AuthResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
-    user: dict
+    user: AuthUser
+    pending_confirmation: bool = False

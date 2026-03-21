@@ -1,43 +1,37 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from app.core.auth import get_current_user
-from app.core.supabase import get_supabase
-from app.schemas.auth import (
-    SignUpRequest,
-    LoginRequest,
-    OTPRequest,
-    OTPVerifyRequest,
-    RefreshRequest,
-    AuthResponse,
-)
+from app.core.supabase import get_supabase, get_user_supabase
+from app.schemas.auth import SignUpRequest, LoginRequest, RefreshRequest, AuthResponse
 
 router = APIRouter()
 
 
-def _build_auth_response(session) -> dict:
-    return {
-        "access_token": session.access_token,
-        "refresh_token": session.refresh_token,
-        "token_type": "bearer",
-        "expires_in": session.expires_in,
-        "user": {"id": str(session.user.id), "email": session.user.email},
-    }
+def _build_auth_response(session) -> AuthResponse:
+    return AuthResponse(
+        access_token=session.access_token,
+        refresh_token=session.refresh_token,
+        token_type="bearer",
+        expires_in=session.expires_in,
+        user={"id": str(session.user.id), "email": session.user.email},
+    )
 
 
-@router.post("/signup", response_model=AuthResponse)
-async def signup(data: SignUpRequest):
+@router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+async def signup(data: SignUpRequest, response: Response):
     try:
         supabase = get_supabase()
-        response = supabase.auth.sign_up({"email": data.email, "password": data.password})
-        if not response.session:
-            # Email confirmation may be required — return success message
-            return {
-                "access_token": "",
-                "refresh_token": "",
-                "token_type": "bearer",
-                "expires_in": 0,
-                "user": {"id": str(response.user.id) if response.user else "", "email": data.email},
-            }
-        return _build_auth_response(response.session)
+        result = supabase.auth.sign_up({"email": data.email, "password": data.password})
+        if not result.session:
+            # Email confirmation required — signal the client with 202
+            response.status_code = status.HTTP_202_ACCEPTED
+            return AuthResponse(
+                access_token="",
+                refresh_token="",
+                expires_in=0,
+                user={"id": str(result.user.id) if result.user else "", "email": data.email},
+                pending_confirmation=True,
+            )
+        return _build_auth_response(result.session)
     except HTTPException:
         raise
     except Exception as e:
@@ -48,58 +42,33 @@ async def signup(data: SignUpRequest):
 async def login(data: LoginRequest):
     try:
         supabase = get_supabase()
-        response = supabase.auth.sign_in_with_password({"email": data.email, "password": data.password})
-        if not response.session:
+        result = supabase.auth.sign_in_with_password({"email": data.email, "password": data.password})
+        if not result.session:
             raise HTTPException(status_code=401, detail="Invalid credentials")
-        return _build_auth_response(response.session)
+        return _build_auth_response(result.session)
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-
-@router.post("/phone/send-otp")
-async def send_phone_otp(data: OTPRequest):
-    try:
-        supabase = get_supabase()
-        supabase.auth.sign_in_with_otp({"phone": data.phone})
-        return {"message": "OTP sent successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.post("/phone/verify-otp", response_model=AuthResponse)
-async def verify_phone_otp(data: OTPVerifyRequest):
-    try:
-        supabase = get_supabase()
-        response = supabase.auth.verify_otp({"phone": data.phone, "token": data.otp, "type": "sms"})
-        if not response.session:
-            raise HTTPException(status_code=401, detail="Invalid OTP")
-        return _build_auth_response(response.session)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Invalid OTP")
 
 
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh(data: RefreshRequest):
     try:
         supabase = get_supabase()
-        response = supabase.auth.refresh_session(data.refresh_token)
-        if not response.session:
+        result = supabase.auth.refresh_session(data.refresh_token)
+        if not result.session:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
-        return _build_auth_response(response.session)
+        return _build_auth_response(result.session)
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(user: dict = Depends(get_current_user)):
     try:
-        from app.core.supabase import get_user_supabase
         user_client = get_user_supabase(user["token"])
         user_client.auth.sign_out()
     except Exception:
