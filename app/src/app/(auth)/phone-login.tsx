@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { ThemedView } from '../../components/themed-view';
 import { ThemedText } from '../../components/themed-text';
 import { Input } from '../../components/input';
@@ -17,6 +17,7 @@ export default function PhoneLoginScreen() {
   const sendPhoneOtp = useAuthStore((s) => s.sendPhoneOtp);
   const verifyPhoneOtp = useAuthStore((s) => s.verifyPhoneOtp);
   const colors = useTheme();
+  const router = useRouter();
 
   const handleSendOtp = async () => {
     if (!phone) {
@@ -35,13 +36,14 @@ export default function PhoneLoginScreen() {
   };
 
   const handleVerifyOtp = async () => {
-    if (!otp || otp.length !== 6) {
+    if (!/^\d{6}$/.test(otp)) {
       Alert.alert('Error', 'Please enter the 6-digit code');
       return;
     }
     setLoading(true);
     try {
       await verifyPhoneOtp(phone, otp);
+      router.replace('/(app)/todos');
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Invalid OTP');
     } finally {
@@ -69,8 +71,9 @@ export default function PhoneLoginScreen() {
                 onChangeText={setPhone}
                 placeholder="+1234567890"
                 keyboardType="phone-pad"
+                testID="phone-input"
               />
-              <Button title="Send Code" onPress={handleSendOtp} loading={loading} style={styles.button} />
+              <Button title="Send Code" onPress={handleSendOtp} loading={loading} style={styles.button} testID="send-code-button" />
             </>
           ) : (
             <>
@@ -81,8 +84,9 @@ export default function PhoneLoginScreen() {
                 placeholder="000000"
                 keyboardType="number-pad"
                 maxLength={6}
+                testID="otp-input"
               />
-              <Button title="Verify" onPress={handleVerifyOtp} loading={loading} style={styles.button} />
+              <Button title="Verify" onPress={handleVerifyOtp} loading={loading} style={styles.button} testID="verify-button" />
               <Button
                 title="Resend Code"
                 variant="outline"

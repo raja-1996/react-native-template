@@ -5,7 +5,7 @@ export interface AuthResponse {
   refresh_token: string;
   token_type: string;
   expires_in: number;
-  user: { id: string; email: string };
+  user: { id: string; email: string | null; phone: string | null };
 }
 
 const authService = {

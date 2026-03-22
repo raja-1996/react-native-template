@@ -6,7 +6,7 @@ import { ThemedText } from '../../components/themed-text';
 import { TodoCard } from '../../components/todo-card';
 import { useTodos, useUpdateTodo, useDeleteTodo } from '../../hooks/use-todos';
 import { useTheme } from '../../hooks/use-theme';
-import { Spacing, BorderRadius } from '../../constants/theme';
+import { Spacing, BorderRadius, FontSize } from '../../constants/theme';
 
 export default function TodosScreen() {
   const router = useRouter();
@@ -50,12 +50,16 @@ export default function TodosScreen() {
         )}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
         }
         ListEmptyComponent={
           !isLoading ? (
             <View style={styles.empty}>
-              <ThemedText variant="secondary">No todos yet. Tap + to create one.</ThemedText>
+              <View style={[styles.emptyIconCircle, { backgroundColor: colors.surface }]}>
+                <ThemedText style={styles.emptyIcon}>☑</ThemedText>
+              </View>
+              <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>No todos yet</ThemedText>
+              <ThemedText style={[styles.emptyCaption, { color: colors.textSecondary }]}>Tap + to create your first one</ThemedText>
             </View>
           ) : null
         }
@@ -63,10 +67,11 @@ export default function TodosScreen() {
 
       {/* FAB */}
       <Pressable
+        testID="fab-button"
         onPress={() => router.push({ pathname: '/(app)/todo-detail' })}
         style={[styles.fab, { backgroundColor: colors.primary }]}
       >
-        <ThemedText style={styles.fabText}>+</ThemedText>
+        <ThemedText style={[styles.fabText, { color: colors.primaryText }]}>+</ThemedText>
       </Pressable>
     </ThemedView>
   );
@@ -83,6 +88,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: Spacing.xxl * 2,
   },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+  },
+  emptyIcon: {
+    fontSize: FontSize.xxl,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  emptyCaption: {
+    fontSize: FontSize.md,
+  },
   fab: {
     position: 'absolute',
     bottom: Spacing.lg,
@@ -92,14 +116,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
+    elevation: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
   },
   fabText: {
-    color: '#FFFFFF',
     fontSize: 28,
     fontWeight: 'bold',
     lineHeight: 30,

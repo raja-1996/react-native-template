@@ -25,7 +25,7 @@ export function Button({ title, variant = 'primary', loading, style, ...rest }: 
       style={({ pressed }) => [
         styles.button,
         { backgroundColor: bgColor, opacity: pressed ? 0.8 : 1 },
-        variant === 'outline' && { borderWidth: 1, borderColor: colors.primary },
+        variant === 'outline' && { borderWidth: 1.5, borderColor: colors.primary },
         rest.disabled && styles.disabled,
         style as any,
       ]}
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 52,
   },
   text: {
     fontSize: FontSize.lg,

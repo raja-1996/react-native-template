@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Alert, ScrollView, View, TextInput, Pressable } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { ThemedView } from '../../components/themed-view';
 import { ThemedText } from '../../components/themed-text';
 import { Button } from '../../components/button';
@@ -15,6 +16,7 @@ export default function SettingsScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const deleteAccount = useAuthStore((s) => s.deleteAccount);
+  const router = useRouter();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -22,7 +24,14 @@ export default function SettingsScreen() {
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: logout },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          router.replace('/(auth)/login');
+        },
+      },
     ]);
   };
 
@@ -86,16 +95,16 @@ export default function SettingsScreen() {
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Profile */}
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <View style={[styles.card, { backgroundColor: colors.background }]}>
           <ThemedText style={styles.cardTitle}>Profile</ThemedText>
 
-          <Pressable onPress={handlePickAvatar} style={styles.avatarContainer}>
+          <Pressable onPress={handlePickAvatar} style={styles.avatarContainer} testID="avatar-pressable">
             {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" testID="avatar-image" />
             ) : (
               <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
-                <ThemedText style={styles.avatarInitial}>
-                  {user?.email?.[0]?.toUpperCase() || '?'}
+                <ThemedText style={styles.avatarInitial} testID="avatar-initial">
+                  {(user?.email?.[0] || user?.phone?.[0] || '?').toUpperCase()}
                 </ThemedText>
               </View>
             )}
@@ -105,13 +114,13 @@ export default function SettingsScreen() {
           </Pressable>
 
           <View style={[styles.infoRow, { borderTopColor: colors.border }]}>
-            <ThemedText variant="secondary">Email</ThemedText>
-            <ThemedText>{user?.email || 'Unknown'}</ThemedText>
+            <ThemedText variant="secondary">{user?.email ? 'Email' : 'Phone'}</ThemedText>
+            <ThemedText>{user?.email || user?.phone || 'Unknown'}</ThemedText>
           </View>
         </View>
 
         {/* Actions */}
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <View style={[styles.card, { backgroundColor: colors.background }]}>
           <Button title="Sign Out" variant="outline" onPress={handleLogout} />
 
           <View style={[styles.dangerZone, { borderTopColor: colors.border }]}>
@@ -162,6 +171,11 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardTitle: {
     fontSize: FontSize.xl,
@@ -198,13 +212,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: Spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: undefined,
   },
   dangerZone: {
     marginTop: Spacing.lg,
     paddingTop: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: undefined,
   },
   dangerTitle: {
     fontSize: FontSize.lg,
@@ -219,7 +231,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   deleteInput: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,

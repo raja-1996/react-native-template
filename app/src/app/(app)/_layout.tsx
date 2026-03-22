@@ -1,8 +1,40 @@
-import { Tabs } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { useTheme } from '../../hooks/use-theme';
+import {
+  registerForPushNotifications,
+  addNotificationListener,
+  addNotificationResponseListener,
+} from '../../lib/notifications';
 
 export default function AppLayout() {
   const colors = useTheme();
+  const router = useRouter();
+  const notificationListener = useRef<{ remove: () => void } | null>(null);
+  const responseListener = useRef<{ remove: () => void } | null>(null);
+
+  useEffect(() => {
+    registerForPushNotifications().catch(() => {
+      // permission denied or simulator — silently ignore
+    });
+
+    notificationListener.current = addNotificationListener((_notification) => {
+      // no-op: notification received in foreground
+    });
+
+    responseListener.current = addNotificationResponseListener((response) => {
+      const todoId = response.notification.request.content.data?.todoId;
+      if (todoId) {
+        router.push({ pathname: '/(app)/todo-detail', params: { id: todoId } });
+      }
+    });
+
+    return () => {
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Tabs
@@ -18,21 +50,18 @@ export default function AppLayout() {
         name="todos"
         options={{
           title: 'Todos',
-          tabBarLabel: 'Todos',
         }}
       />
       <Tabs.Screen
         name="realtime"
         options={{
           title: 'Realtime',
-          tabBarLabel: 'Realtime',
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarLabel: 'Settings',
         }}
       />
       <Tabs.Screen

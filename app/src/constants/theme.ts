@@ -1,15 +1,15 @@
 export const Colors = {
   light: {
-    text: '#11181C',
-    textSecondary: '#687076',
+    text: '#202124',
+    textSecondary: '#5F6368',
     background: '#FFFFFF',
-    surface: '#F6F6F6',
-    border: '#E6E8EB',
-    primary: '#0A7EA4',
+    surface: '#F8F9FA',
+    border: '#E8EAED',
+    primary: '#1A73E8',
     primaryText: '#FFFFFF',
-    danger: '#E5484D',
+    danger: '#EA4335',
     dangerText: '#FFFFFF',
-    success: '#30A46C',
+    success: '#34A853',
   },
   dark: {
     text: '#ECEDEE',
@@ -44,9 +44,9 @@ export const FontSize = {
 };
 
 export const BorderRadius = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
   full: 9999,
 };

@@ -4,26 +4,27 @@
     "slug": "react-native-template",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "react-native-template",
+    "scheme": "todoapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.template.reactnative"
+      "bundleIdentifier": "com.raja.todoapp"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       },
-      "package": "com.template.reactnative"
+      "package": "com.raja.todoapp"
     }
   }
 }

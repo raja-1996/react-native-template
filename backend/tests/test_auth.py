@@ -134,6 +134,10 @@ class TestPhoneOTP:
 
         assert resp.status_code == 400
 
+    def test_send_otp_missing_phone(self, client):
+        resp = client.post("/api/v1/auth/phone/send-otp", json={})
+        assert resp.status_code == 422
+
     def test_verify_otp_success(self, client):
         session = make_mock_session()
         mock_sb = _mock_supabase_with_session(session)
@@ -172,6 +176,24 @@ class TestPhoneOTP:
             )
 
         assert resp.status_code == 401
+
+    def test_verify_otp_phone_user_no_email(self, client):
+        session = make_mock_session(email=None, phone="+1234567890")
+        mock_sb = _mock_supabase_with_session(session)
+
+        with patch("app.api.v1.auth.get_supabase", return_value=mock_sb):
+            resp = client.post(
+                "/api/v1/auth/phone/verify-otp",
+                json={"phone": "+1234567890", "otp": "123456"},
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["user"]["phone"] == "+1234567890"
+        assert data["user"]["email"] is None
+        assert data["access_token"] == "access-abc"
+        assert data["refresh_token"] == "refresh-xyz"
+        assert data["expires_in"] == 3600
 
 
 class TestRefresh:

@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import api from './api';
+import notificationsService from '../services/notifications-service';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -32,7 +32,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
   // Register token with backend
   try {
-    await api.post('/notifications/register-token', { token });
+    await notificationsService.registerToken(token);
   } catch {
     // Silently fail — token registration is not critical
   }

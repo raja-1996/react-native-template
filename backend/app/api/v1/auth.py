@@ -19,7 +19,11 @@ def _build_auth_response(session) -> dict:
         "refresh_token": session.refresh_token,
         "token_type": "bearer",
         "expires_in": session.expires_in,
-        "user": {"id": str(session.user.id), "email": session.user.email},
+        "user": {
+            "id": str(session.user.id),
+            "email": session.user.email,
+            "phone": getattr(session.user, "phone", None),
+        },
     }
 
 
@@ -35,7 +39,7 @@ async def signup(data: SignUpRequest):
                 "refresh_token": "",
                 "token_type": "bearer",
                 "expires_in": 0,
-                "user": {"id": str(response.user.id) if response.user else "", "email": data.email},
+                "user": {"id": str(response.user.id) if response.user else "", "email": data.email, "phone": None},
             }
         return _build_auth_response(response.session)
     except HTTPException:

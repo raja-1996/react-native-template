@@ -1,167 +1,251 @@
 import { useState, useEffect, useRef } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import { StyleSheet, ScrollView, View, FlatList } from 'react-native';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { ThemedView } from '../../components/themed-view';
 import { ThemedText } from '../../components/themed-text';
 import { Button } from '../../components/button';
+import { useAuthStore } from '../../stores/auth-store';
 import { useTheme } from '../../hooks/use-theme';
+import { supabase } from '../../lib/supabase';
 import { Spacing, BorderRadius, FontSize } from '../../constants/theme';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface LogEntry {
-  id: number;
-  message: string;
+  id: string;
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  title: string;
   timestamp: string;
 }
 
+const CHANNEL_NAME = 'realtime-playground';
+const LOG_CAP = 50;
+
 export default function RealtimeScreen() {
   const colors = useTheme();
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [onlineCount, setOnlineCount] = useState(0);
+  const user = useAuthStore((s) => s.user);
+
+  const [log, setLog] = useState<LogEntry[]>([]);
+  const [presenceCount, setPresenceCount] = useState(0);
   const [counter, setCounter] = useState(0);
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const logIdRef = useRef(0);
 
-  const addLog = (message: string) => {
-    logIdRef.current += 1;
-    setLogs((prev) => [
-      { id: logIdRef.current, message, timestamp: new Date().toLocaleTimeString() },
-      ...prev.slice(0, 49),
-    ]);
-  };
+  useEffect(() => {
+    if (channelRef.current) {
+      return;
+    }
 
-  const subscribe = () => {
-    if (channelRef.current) return;
-
-    const channel = supabase.channel('realtime-playground', {
-      config: { presence: { key: `user-${Date.now()}` } },
+    const channel = supabase.channel(CHANNEL_NAME, {
+      config: { broadcast: { self: true } },
     });
 
     channel.on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'todos' },
       (payload) => {
-        const eventType = payload.eventType;
-        const title =
-          (payload.new as any)?.title || (payload.old as any)?.id?.slice(0, 8) || 'unknown';
-        addLog(`${eventType}: ${title}`);
+        const record = (payload.new && Object.keys(payload.new).length > 0
+          ? payload.new
+          : payload.old) as Record<string, unknown>;
+
+        const entry: LogEntry = {
+          id: `${Date.now()}-${Math.random()}`,
+          eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+          title: record?.title != null ? String(record.title) : '(untitled)',
+          timestamp: new Date().toLocaleTimeString(),
+        };
+
+        setLog((prev) => [entry, ...prev].slice(0, LOG_CAP));
       }
     );
 
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState();
-      setOnlineCount(Object.keys(state).length);
+      setPresenceCount(Object.keys(state).length);
     });
 
-    channel.on('broadcast', { event: 'counter' }, ({ payload }) => {
-      setCounter(payload.value);
+    channel.on('broadcast', { event: 'counter' }, (payload) => {
+      if (typeof payload.payload?.value === 'number') {
+        setCounter(payload.payload.value);
+      }
     });
 
-    channel.subscribe(async (status) => {
+    const accessToken = useAuthStore.getState().accessToken;
+    if (accessToken) supabase.realtime.setAuth(accessToken);
+
+    channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        setIsSubscribed(true);
-        addLog('Connected to realtime channel');
-        await channel.track({ online_at: new Date().toISOString() });
+        setIsConnected(true);
+        channel.track({ user_id: user?.id ?? 'anonymous' });
+      } else if (
+        status === 'CHANNEL_ERROR' ||
+        status === 'TIMED_OUT' ||
+        status === 'CLOSED'
+      ) {
+        supabase.removeChannel(channelRef.current!);
+        channelRef.current = null;
+        setIsConnected(false);
       }
     });
 
     channelRef.current = channel;
-  };
 
-  const unsubscribe = () => {
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-      setIsSubscribed(false);
-      setOnlineCount(0);
-      addLog('Disconnected from realtime channel');
-    }
-  };
-
-  const incrementCounter = () => {
-    const newValue = counter + 1;
-    setCounter(newValue);
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'counter',
-      payload: { value: newValue },
-    });
-  };
-
-  useEffect(() => {
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
+      setIsConnected(false);
     };
-  }, []);
+  }, [user]);
+
+  const handleToggleConnection = () => {
+    if (isConnected) {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      setIsConnected(false);
+    } else {
+      if (channelRef.current) {
+        return;
+      }
+
+      const channel = supabase.channel(CHANNEL_NAME, {
+        config: { broadcast: { self: true } },
+      });
+
+      channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'todos' },
+        (payload) => {
+          const record = (payload.new && Object.keys(payload.new).length > 0
+            ? payload.new
+            : payload.old) as Record<string, unknown>;
+
+          const entry: LogEntry = {
+            id: `${Date.now()}-${Math.random()}`,
+            eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+            title: record?.title != null ? String(record.title) : '(untitled)',
+            timestamp: new Date().toLocaleTimeString(),
+          };
+
+          setLog((prev) => [entry, ...prev].slice(0, LOG_CAP));
+        }
+      );
+
+      channel.on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        setPresenceCount(Object.keys(state).length);
+      });
+
+      channel.on('broadcast', { event: 'counter' }, (payload) => {
+        if (typeof payload.payload?.value === 'number') {
+          setCounter(payload.payload.value);
+        }
+      });
+
+      const accessToken = useAuthStore.getState().accessToken;
+      if (accessToken) supabase.realtime.setAuth(accessToken);
+
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsConnected(true);
+          channel.track({ user_id: user?.id ?? 'anonymous' });
+        } else if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          supabase.removeChannel(channelRef.current!);
+          channelRef.current = null;
+          setIsConnected(false);
+        }
+      });
+
+      channelRef.current = channel;
+    }
+  };
+
+  const handleIncrement = () => {
+    const nextValue = counter + 1;
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'counter',
+      payload: { value: nextValue },
+    });
+  };
+
+  const getBadgeColor = (eventType: LogEntry['eventType']) => {
+    if (eventType === 'INSERT') return colors.success;
+    if (eventType === 'UPDATE') return colors.primary;
+    return colors.danger;
+  };
+
+  const renderLogEntry = ({ item }: { item: LogEntry }) => (
+    <View style={styles.logEntry}>
+      <View style={[styles.badge, { backgroundColor: getBadgeColor(item.eventType) }]}>
+        <ThemedText style={styles.badgeText}>{item.eventType}</ThemedText>
+      </View>
+      <ThemedText style={styles.logTitle} numberOfLines={1}>{item.title}</ThemedText>
+      <ThemedText variant="secondary" style={styles.logTimestamp}>{item.timestamp}</ThemedText>
+    </View>
+  );
 
   return (
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Connection */}
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <ThemedText style={styles.cardTitle}>Connection</ThemedText>
-          <ThemedText variant="secondary" style={styles.cardDescription}>
-            Subscribe to realtime events from the todos table
-          </ThemedText>
+        {/* Connection toggle */}
+        <View style={styles.connectionRow}>
           <Button
-            title={isSubscribed ? 'Disconnect' : 'Connect'}
-            variant={isSubscribed ? 'danger' : 'primary'}
-            onPress={isSubscribed ? unsubscribe : subscribe}
+            title={isConnected ? 'Disconnect' : 'Reconnect'}
+            variant={isConnected ? 'danger' : 'primary'}
+            onPress={handleToggleConnection}
+            testID="disconnect-button"
           />
         </View>
 
-        {/* Presence */}
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <ThemedText style={styles.cardTitle}>Presence</ThemedText>
-          <ThemedText variant="secondary" style={styles.cardDescription}>
-            Users currently connected to this channel
-          </ThemedText>
-          <View style={[styles.countBadge, { backgroundColor: colors.primary }]}>
-            <ThemedText style={styles.countText}>{onlineCount}</ThemedText>
-          </View>
-        </View>
-
-        {/* Broadcast Counter */}
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <ThemedText style={styles.cardTitle}>Broadcast Counter</ThemedText>
-          <ThemedText variant="secondary" style={styles.cardDescription}>
-            Shared counter synced across all connected clients
-          </ThemedText>
-          <View style={styles.counterRow}>
-            <ThemedText style={styles.counterValue}>{counter}</ThemedText>
-            <Button
-              title="Increment"
-              onPress={incrementCounter}
-              disabled={!isSubscribed}
+        {/* Card 1: Live Todos Feed */}
+        <View style={[styles.card, { backgroundColor: colors.background }]}>
+          <ThemedText style={styles.cardTitle}>Live Todos Feed</ThemedText>
+          <View style={styles.logContainer}>
+            <FlatList
+              data={log}
+              keyExtractor={(item) => item.id}
+              renderItem={renderLogEntry}
+              testID="log-list"
+              scrollEnabled={false}
+              ListEmptyComponent={
+                <ThemedText variant="secondary" style={styles.emptyText}>
+                  Waiting for todo changes…
+                </ThemedText>
+              }
             />
           </View>
         </View>
 
-        {/* Live Log */}
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <ThemedText style={styles.cardTitle}>Live Event Log</ThemedText>
-          <ThemedText variant="secondary" style={styles.cardDescription}>
-            Real-time database changes on the todos table
+        {/* Card 2: Presence */}
+        <View style={[styles.card, { backgroundColor: colors.background }]}>
+          <ThemedText style={styles.cardTitle}>Presence</ThemedText>
+          <ThemedText
+            testID="presence-count"
+            style={styles.presenceText}
+          >
+            {presenceCount} user(s) on this screen
           </ThemedText>
-          <View style={[styles.logContainer, { backgroundColor: colors.background }]}>
-            {logs.length === 0 ? (
-              <ThemedText variant="secondary" style={styles.logEmpty}>
-                No events yet. Connect and modify todos to see live updates.
-              </ThemedText>
-            ) : (
-              logs.map((entry) => (
-                <View key={entry.id} style={styles.logEntry}>
-                  <ThemedText variant="secondary" style={styles.logTimestamp}>
-                    {entry.timestamp}
-                  </ThemedText>
-                  <ThemedText style={styles.logMessage}>{entry.message}</ThemedText>
-                </View>
-              ))
-            )}
-          </View>
+        </View>
+
+        {/* Card 3: Broadcast Counter */}
+        <View style={[styles.card, { backgroundColor: colors.background }]}>
+          <ThemedText style={styles.cardTitle}>Broadcast Counter</ThemedText>
+          <ThemedText testID="counter-value" style={styles.counterValue}>
+            {counter}
+          </ThemedText>
+          <Button
+            title="Increment"
+            variant="primary"
+            onPress={handleIncrement}
+            testID="increment-button"
+          />
         </View>
       </ScrollView>
     </ThemedView>
@@ -171,60 +255,63 @@ export default function RealtimeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: Spacing.md },
+  connectionRow: {
+    marginBottom: Spacing.md,
+  },
   card: {
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardTitle: {
     fontSize: FontSize.xl,
     fontWeight: '600',
-    marginBottom: Spacing.xs,
-  },
-  cardDescription: {
-    fontSize: FontSize.md,
     marginBottom: Spacing.md,
   },
-  countBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countText: {
-    color: '#FFFFFF',
-    fontSize: FontSize.xl,
-    fontWeight: 'bold',
-  },
-  counterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  counterValue: {
-    fontSize: FontSize.xxl,
-    fontWeight: 'bold',
-  },
   logContainer: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.sm,
-    maxHeight: 300,
-  },
-  logEmpty: {
-    textAlign: 'center',
-    padding: Spacing.md,
+    height: 200,
+    overflow: 'hidden',
   },
   logEntry: {
     flexDirection: 'row',
-    paddingVertical: Spacing.xs,
-    gap: Spacing.sm,
+    alignItems: 'center',
+    marginBottom: Spacing.xs,
+    gap: Spacing.xs,
+  },
+  badge: {
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+  },
+  badgeText: {
+    fontSize: FontSize.sm,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  logTitle: {
+    flex: 1,
+    fontSize: FontSize.md,
   },
   logTimestamp: {
     fontSize: FontSize.sm,
   },
-  logMessage: {
-    fontSize: FontSize.sm,
-    flex: 1,
+  emptyText: {
+    fontSize: FontSize.md,
+    textAlign: 'center',
+    paddingVertical: Spacing.md,
+  },
+  presenceText: {
+    fontSize: FontSize.lg,
+  },
+  counterValue: {
+    fontSize: FontSize.title,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: Spacing.md,
   },
 });

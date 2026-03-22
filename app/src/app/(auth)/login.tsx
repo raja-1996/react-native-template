@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { ThemedView } from '../../components/themed-view';
 import { ThemedText } from '../../components/themed-text';
 import { Input } from '../../components/input';
@@ -16,6 +16,7 @@ export default function LoginScreen() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const login = useAuthStore((s) => s.login);
   const colors = useTheme();
+  const router = useRouter();
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -32,6 +33,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(email, password);
+      router.replace('/(app)/todos');
     } catch (error: any) {
       Alert.alert('Login Failed', error.response?.data?.detail || 'Invalid credentials');
     } finally {
@@ -60,6 +62,7 @@ export default function LoginScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
+            testID="email-input"
           />
 
           <Input
@@ -70,9 +73,10 @@ export default function LoginScreen() {
             placeholder="Enter your password"
             secureTextEntry
             autoComplete="password"
+            testID="password-input"
           />
 
-          <Button title="Sign In" onPress={handleLogin} loading={loading} style={styles.button} />
+          <Button title="Sign In" onPress={handleLogin} loading={loading} style={styles.button} testID="login-button" />
 
           <View style={styles.links}>
             <Link href="/(auth)/signup" style={[styles.link, { color: colors.primary }]}>

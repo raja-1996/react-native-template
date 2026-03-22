@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
@@ -9,7 +9,7 @@ import { Button } from '../../components/button';
 import { useTodo, useCreateTodo, useUpdateTodo, useDeleteTodo } from '../../hooks/use-todos';
 import storageService from '../../services/storage-service';
 import { useTheme } from '../../hooks/use-theme';
-import { Spacing } from '../../constants/theme';
+import { Spacing, BorderRadius } from '../../constants/theme';
 
 export default function TodoDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -118,22 +118,26 @@ export default function TodoDetailScreen() {
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Input
-            label="Title"
-            value={title}
-            onChangeText={setTitle}
-            placeholder="What needs to be done?"
-          />
+          <View style={[styles.formCard, { backgroundColor: colors.background }]}>
+            <Input
+              testID="title-input"
+              label="Title"
+              value={title}
+              onChangeText={setTitle}
+              placeholder="What needs to be done?"
+            />
 
-          <Input
-            label="Description"
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Add details..."
-            multiline
-            numberOfLines={4}
-            style={styles.descriptionInput}
-          />
+            <Input
+              testID="description-input"
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Add details..."
+              multiline
+              numberOfLines={4}
+              style={styles.descriptionInput}
+            />
+          </View>
 
           {!isNew && (
             <Button
@@ -177,6 +181,16 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
   },
+  formCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
   descriptionInput: {
     minHeight: 100,
     textAlignVertical: 'top',
@@ -185,7 +199,7 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
+    borderRadius: BorderRadius.sm,
     marginBottom: Spacing.md,
   },
   imageButton: { marginBottom: Spacing.md },

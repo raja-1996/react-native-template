@@ -4,10 +4,13 @@ Integration tests for /api/v1/auth endpoints.
 These tests require a running Supabase instance and are automatically skipped
 when one is not reachable. See tests/integration/conftest.py for setup details.
 """
+import os
 import uuid
 import pytest
 
 from tests.integration.conftest import skip_if_no_supabase, TEST_PASSWORD
+
+TEST_PHONE = "+919182666194"
 
 
 pytestmark = skip_if_no_supabase
@@ -16,7 +19,7 @@ pytestmark = skip_if_no_supabase
 class TestSignupLoginIntegration:
     def test_signup_new_user(self, integration_client):
         """Signing up with a fresh email returns a valid auth response."""
-        email = f"signup-{uuid.uuid4().hex[:8]}@example.com"
+        email = f"signup-{uuid.uuid4().hex[:8]}@gmail.com"
         resp = integration_client.post(
             "/api/v1/auth/signup",
             json={"email": email, "password": TEST_PASSWORD},
@@ -107,6 +110,49 @@ class TestProtectedEndpointIntegration:
             headers={"Authorization": "NotBearer sometoken"},
         )
         assert resp.status_code == 401
+
+
+class TestPhoneOTPIntegration:
+    def test_send_phone_otp(self, integration_client):
+        """Sending OTP to a real phone number returns 200. Requires Twilio configured in Supabase."""
+        resp = integration_client.post(
+            "/api/v1/auth/phone/send-otp",
+            json={"phone": TEST_PHONE},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["message"] == "OTP sent successfully"
+
+    def test_verify_phone_otp(self, integration_client):
+        """
+        Verify OTP received via SMS. Run after test_send_phone_otp.
+
+        Usage:
+            TEST_PHONE_OTP=123456 pytest tests/integration/test_auth_integration.py::TestPhoneOTPIntegration::test_verify_phone_otp -v
+        """
+        otp = os.environ.get("TEST_PHONE_OTP")
+        if not otp:
+            pytest.skip("Set TEST_PHONE_OTP=<code> to run this test")
+
+        resp = integration_client.post(
+            "/api/v1/auth/phone/verify-otp",
+            json={"phone": TEST_PHONE, "otp": otp},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["access_token"]
+        assert data["refresh_token"]
+        assert data["token_type"] == "bearer"
+        assert data["user"]["phone"] == TEST_PHONE.lstrip("+")
+        assert not data["user"]["email"]  # Supabase returns "" for phone-only users
+
+        # Cleanup — delete the phone user created by OTP verification
+        from app.core.supabase import get_supabase
+        user_id = data["user"]["id"]
+        if user_id:
+            try:
+                get_supabase().auth.admin.delete_user(user_id)
+            except Exception:
+                pass
 
 
 class TestLogoutIntegration:

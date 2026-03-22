@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.auth import get_current_user
 
-MOCK_USER = {"id": "user-123", "email": "test@example.com", "token": "test-token"}
+MOCK_USER = {"id": "user-123", "email": "test@example.com", "token": "test-token", "phone": None}
 AUTH_HEADERS = {"Authorization": "Bearer test-token"}
 
 
@@ -22,6 +22,7 @@ def make_mock_session(
     expires_in=3600,
     user_id="user-123",
     email="test@example.com",
+    phone=None,
 ):
     session = MagicMock()
     session.access_token = access_token
@@ -29,6 +30,7 @@ def make_mock_session(
     session.expires_in = expires_in
     session.user.id = user_id
     session.user.email = email
+    session.user.phone = phone
     return session
 
 

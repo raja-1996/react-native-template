@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { ThemedView } from '../../components/themed-view';
 import { ThemedText } from '../../components/themed-text';
 import { Input } from '../../components/input';
@@ -17,6 +17,7 @@ export default function SignupScreen() {
   const [errors, setErrors] = useState<{ email?: string; password?: string; confirm?: string }>({});
   const signup = useAuthStore((s) => s.signup);
   const colors = useTheme();
+  const router = useRouter();
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -34,6 +35,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       await signup(email, password);
+      router.replace('/(app)/todos');
     } catch (error: any) {
       Alert.alert('Signup Failed', error.response?.data?.detail || 'Could not create account');
     } finally {
@@ -62,6 +64,7 @@ export default function SignupScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoComplete="email"
+            testID="email-input"
           />
 
           <Input
@@ -71,6 +74,7 @@ export default function SignupScreen() {
             error={errors.password}
             placeholder="At least 6 characters"
             secureTextEntry
+            testID="password-input"
           />
 
           <Input
@@ -80,9 +84,10 @@ export default function SignupScreen() {
             error={errors.confirm}
             placeholder="Repeat your password"
             secureTextEntry
+            testID="confirm-password-input"
           />
 
-          <Button title="Create Account" onPress={handleSignup} loading={loading} style={styles.button} />
+          <Button title="Create Account" onPress={handleSignup} loading={loading} style={styles.button} testID="signup-button" />
 
           <Link href="/(auth)/login" style={[styles.link, { color: colors.primary }]}>
             Already have an account? Sign In

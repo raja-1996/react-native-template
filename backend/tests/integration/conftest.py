@@ -69,6 +69,38 @@ skip_if_no_supabase = pytest.mark.skipif(
 TEST_PASSWORD = "IntegrationTest@123"
 
 
+def _create_test_user(client: TestClient, email_prefix: str) -> dict:
+    """
+    Sign up and log in a test user. Returns a user info dict with keys:
+    email, password, access_token, refresh_token, user_id, auth_headers.
+    """
+    email = f"{email_prefix}-{uuid.uuid4().hex[:8]}@gmail.com"
+
+    # Sign up
+    resp = client.post(
+        "/api/v1/auth/signup",
+        json={"email": email, "password": TEST_PASSWORD},
+    )
+    assert resp.status_code == 200, f"Signup failed: {resp.text}"
+
+    # Sign in to obtain a confirmed session (email confirm is disabled)
+    resp = client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": TEST_PASSWORD},
+    )
+    assert resp.status_code == 200, f"Login failed: {resp.text}"
+    data = resp.json()
+
+    return {
+        "email": email,
+        "password": TEST_PASSWORD,
+        "access_token": data["access_token"],
+        "refresh_token": data["refresh_token"],
+        "user_id": data["user"]["id"],
+        "auth_headers": {"Authorization": f"Bearer {data['access_token']}"},
+    }
+
+
 @pytest.fixture(scope="session")
 def integration_client():
     """
@@ -82,9 +114,15 @@ def integration_client():
     os.environ["SUPABASE_PUBLISHABLE_DEFAULT_KEY"] = _SUPABASE_ANON_KEY
     os.environ["SUPABASE_SECRET_DEFAULT_KEY"] = _SUPABASE_SERVICE_KEY
 
-    # Re-import with fresh settings (clear lru_cache so new creds are used)
-    from app.core.supabase import get_supabase
-    get_supabase.cache_clear()
+    # Reload config so Settings() re-reads the updated env vars
+    import importlib
+    import app.core.config as config_module
+    importlib.reload(config_module)
+
+    # Point supabase module to the fresh settings and clear cached client
+    import app.core.supabase as supabase_module
+    supabase_module.settings = config_module.settings
+    supabase_module.get_supabase.cache_clear()
 
     from app.main import app
     # Remove unit-test dependency overrides if any leaked through
@@ -101,31 +139,7 @@ def test_user(integration_client):
     `user_id`, and `auth_headers`.
     Deletes the user after the session ends.
     """
-    email = f"integration-test-{uuid.uuid4().hex[:8]}@example.com"
-
-    # Sign up
-    resp = integration_client.post(
-        "/api/v1/auth/signup",
-        json={"email": email, "password": TEST_PASSWORD},
-    )
-    assert resp.status_code == 200, f"Signup failed: {resp.text}"
-
-    # Sign in to obtain a confirmed session (email confirm is disabled locally)
-    resp = integration_client.post(
-        "/api/v1/auth/login",
-        json={"email": email, "password": TEST_PASSWORD},
-    )
-    assert resp.status_code == 200, f"Login failed: {resp.text}"
-    data = resp.json()
-
-    user_info = {
-        "email": email,
-        "password": TEST_PASSWORD,
-        "access_token": data["access_token"],
-        "refresh_token": data["refresh_token"],
-        "user_id": data["user"]["id"],
-        "auth_headers": {"Authorization": f"Bearer {data['access_token']}"},
-    }
+    user_info = _create_test_user(integration_client, "integration-test")
 
     yield user_info
 
@@ -135,3 +149,24 @@ def test_user(integration_client):
         get_supabase().auth.admin.delete_user(user_info["user_id"])
     except Exception as e:
         print(f"[integration] Warning: could not delete test user: {e}")
+
+
+@pytest.fixture(scope="session")
+def test_user_b(integration_client):
+    """
+    Create a second unique test user in Supabase for the whole test session.
+    Used for cross-user RLS tests.
+    Yields a dict with `email`, `password`, `access_token`, `refresh_token`,
+    `user_id`, and `auth_headers`.
+    Deletes the user after the session ends.
+    """
+    user_info = _create_test_user(integration_client, "integration-test-b")
+
+    yield user_info
+
+    # Teardown: delete the test user via admin API
+    from app.core.supabase import get_supabase
+    try:
+        get_supabase().auth.admin.delete_user(user_info["user_id"])
+    except Exception as e:
+        print(f"[integration] Warning: could not delete test user B: {e}")

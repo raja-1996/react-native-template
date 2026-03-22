@@ -21,10 +21,10 @@ export function TodoCard({ title, description, isCompleted, onPress, onToggle, o
       onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: colors.surface, opacity: pressed ? 0.8 : 1 },
+        { backgroundColor: colors.background, opacity: pressed ? 0.8 : 1 },
       ]}
     >
-      <Pressable onPress={onToggle} style={styles.checkbox}>
+      <Pressable onPress={onToggle} style={styles.checkbox} testID={`checkbox-${title.replace(/\s+/g, '-').toLowerCase()}`}>
         <View
           style={[
             styles.checkboxInner,
@@ -63,6 +63,11 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderRadius: BorderRadius.lg,
     marginBottom: Spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   checkbox: {
     marginRight: Spacing.md,

@@ -4,7 +4,8 @@ import authService, { AuthResponse } from '../services/auth-service';
 
 interface User {
   id: string;
-  email: string;
+  email: string | null;
+  phone: string | null;
 }
 
 interface AuthState {
@@ -103,9 +104,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   restoreSession: async () => {
+    let accessToken: string | null = null;
+    let refreshToken: string | null = null;
     try {
-      const accessToken = await SecureStore.getItemAsync('access_token');
-      const refreshToken = await SecureStore.getItemAsync('refresh_token');
+      accessToken = await SecureStore.getItemAsync('access_token');
+      refreshToken = await SecureStore.getItemAsync('refresh_token');
       if (accessToken && refreshToken) {
         // Try to refresh the token to validate the session
         const { data } = await authService.refresh(refreshToken);
