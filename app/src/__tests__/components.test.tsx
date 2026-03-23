@@ -3,7 +3,6 @@ import { render, fireEvent, screen } from '@testing-library/react-native';
 import {
   StyleSheet,
   ActivityIndicator,
-  Pressable,
   TextInput,
   Text,
   View,
@@ -13,16 +12,16 @@ import {
 // Mock useTheme — returns light palette for all tests
 // ---------------------------------------------------------------------------
 const mockColors = {
-  text: '#11181C',
-  textSecondary: '#687076',
+  text: '#0F1419',
+  textSecondary: '#536471',
   background: '#FFFFFF',
-  surface: '#F6F6F6',
-  border: '#E6E8EB',
-  primary: '#0A7EA4',
+  surface: '#F7F9F9',
+  border: '#EFF3F4',
+  primary: '#1D9BF0',
   primaryText: '#FFFFFF',
-  danger: '#E5484D',
+  danger: '#F4212E',
   dangerText: '#FFFFFF',
-  success: '#30A46C',
+  success: '#00BA7C',
 };
 
 jest.mock('../hooks/use-theme', () => ({
@@ -71,11 +70,9 @@ describe('Button', () => {
   });
 
   it('button is not pressable while loading', () => {
-    const { UNSAFE_getByType } = render(
-      <Button title="Save" loading onPress={onPress} />,
-    );
-    const pressable = UNSAFE_getByType(Pressable);
-    expect(pressable.props.disabled).toBe(true);
+    render(<Button testID="btn" title="Save" loading onPress={onPress} />);
+    const pressable = screen.getByTestId('btn');
+    expect(pressable.props.accessibilityState?.disabled).toBe(true);
   });
 
   it('calls onPress when pressed', () => {
@@ -85,29 +82,23 @@ describe('Button', () => {
   });
 
   it("primary variant uses colors.primary as background", () => {
-    const { UNSAFE_getByType } = render(
-      <Button title="Primary" variant="primary" onPress={onPress} />,
-    );
-    const pressable = UNSAFE_getByType(Pressable);
-    const flat = flatStyle(pressable.props.style({ pressed: false }));
+    render(<Button testID="btn" title="Primary" variant="primary" onPress={onPress} />);
+    const pressable = screen.getByTestId('btn');
+    const flat = flatStyle(pressable.props.style);
     expect(flat.backgroundColor).toBe(mockColors.primary);
   });
 
   it("danger variant uses colors.danger as background", () => {
-    const { UNSAFE_getByType } = render(
-      <Button title="Delete" variant="danger" onPress={onPress} />,
-    );
-    const pressable = UNSAFE_getByType(Pressable);
-    const flat = flatStyle(pressable.props.style({ pressed: false }));
+    render(<Button testID="btn" title="Delete" variant="danger" onPress={onPress} />);
+    const pressable = screen.getByTestId('btn');
+    const flat = flatStyle(pressable.props.style);
     expect(flat.backgroundColor).toBe(mockColors.danger);
   });
 
   it("outline variant has transparent background and a border", () => {
-    const { UNSAFE_getByType } = render(
-      <Button title="Cancel" variant="outline" onPress={onPress} />,
-    );
-    const pressable = UNSAFE_getByType(Pressable);
-    const flat = flatStyle(pressable.props.style({ pressed: false }));
+    render(<Button testID="btn" title="Cancel" variant="outline" onPress={onPress} />);
+    const pressable = screen.getByTestId('btn');
+    const flat = flatStyle(pressable.props.style);
     expect(flat.backgroundColor).toBe('transparent');
     expect(flat.borderWidth).toBe(1);
     expect(flat.borderColor).toBe(mockColors.primary);
@@ -181,7 +172,7 @@ describe('ThemedText', () => {
   it("title variant has large bold text", () => {
     render(<ThemedText variant="title">Big Title</ThemedText>);
     const flat = flatStyle(screen.getByText('Big Title').props.style);
-    expect(flat.fontSize).toBe(28);
+    expect(flat.fontSize).toBe(22);
     expect(flat.fontWeight).toBe('bold');
   });
 });
@@ -217,6 +208,7 @@ describe('TodoCard', () => {
   let onToggle: jest.Mock;
   let onLongPress: jest.Mock;
   let baseProps: {
+    id: string;
     title: string;
     isCompleted: boolean;
     onPress: jest.Mock;
@@ -230,6 +222,7 @@ describe('TodoCard', () => {
     onToggle = jest.fn();
     onLongPress = jest.fn();
     baseProps = {
+      id: 'todo-1',
       title: 'Buy groceries',
       isCompleted: false,
       onPress,
@@ -277,10 +270,8 @@ describe('TodoCard', () => {
   });
 
   it('calls onToggle when checkbox is pressed', () => {
-    const { UNSAFE_getAllByType } = render(<TodoCard {...baseProps} />);
-    // Outer Pressable is index 0 (card), inner Pressable is index 1 (checkbox)
-    const pressables = UNSAFE_getAllByType(Pressable);
-    fireEvent.press(pressables[1]);
+    render(<TodoCard {...baseProps} />);
+    fireEvent.press(screen.getByTestId('checkbox-buy-groceries'));
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
 

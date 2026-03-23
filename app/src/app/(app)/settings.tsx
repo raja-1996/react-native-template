@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { StyleSheet, Alert, ScrollView, View, TextInput, Pressable } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
@@ -20,6 +20,43 @@ export default function SettingsScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const cardStyle = useMemo(
+    () => [styles.card, { backgroundColor: colors.background, borderBottomColor: colors.border }],
+    [colors.background, colors.border]
+  );
+
+  const avatarPlaceholderStyle = useMemo(
+    () => [styles.avatarPlaceholder, { backgroundColor: colors.primary }],
+    [colors.primary]
+  );
+
+  const infoRowStyle = useMemo(
+    () => [styles.infoRow, { borderTopColor: colors.border }],
+    [colors.border]
+  );
+
+  const dangerZoneStyle = useMemo(
+    () => [styles.dangerZone, { borderTopColor: colors.border }],
+    [colors.border]
+  );
+
+  const dangerTitleStyle = useMemo(
+    () => [styles.dangerTitle, { color: colors.danger }],
+    [colors.danger]
+  );
+
+  const deleteInputStyle = useMemo(
+    () => [
+      styles.deleteInput,
+      {
+        borderColor: colors.danger,
+        color: colors.text,
+        backgroundColor: colors.background,
+      },
+    ],
+    [colors.danger, colors.text, colors.background]
+  );
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to sign out?', [
@@ -95,14 +132,14 @@ export default function SettingsScreen() {
     <ThemedView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Profile */}
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
+        <View style={cardStyle}>
           <ThemedText style={styles.cardTitle}>Profile</ThemedText>
 
           <Pressable onPress={handlePickAvatar} style={styles.avatarContainer} testID="avatar-pressable">
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" testID="avatar-image" />
             ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: colors.primary }]}>
+              <View style={avatarPlaceholderStyle}>
                 <ThemedText style={styles.avatarInitial} testID="avatar-initial">
                   {(user?.email?.[0] || user?.phone?.[0] || '?').toUpperCase()}
                 </ThemedText>
@@ -113,18 +150,18 @@ export default function SettingsScreen() {
             </ThemedText>
           </Pressable>
 
-          <View style={[styles.infoRow, { borderTopColor: colors.border }]}>
+          <View style={infoRowStyle}>
             <ThemedText variant="secondary">{user?.email ? 'Email' : 'Phone'}</ThemedText>
             <ThemedText>{user?.email || user?.phone || 'Unknown'}</ThemedText>
           </View>
         </View>
 
         {/* Actions */}
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
+        <View style={cardStyle}>
           <Button title="Sign Out" variant="outline" onPress={handleLogout} />
 
-          <View style={[styles.dangerZone, { borderTopColor: colors.border }]}>
-            <ThemedText style={[styles.dangerTitle, { color: colors.danger }]}>
+          <View style={dangerZoneStyle}>
+            <ThemedText style={dangerTitleStyle}>
               Danger Zone
             </ThemedText>
 
@@ -137,14 +174,7 @@ export default function SettingsScreen() {
                   value={deleteConfirm}
                   onChangeText={setDeleteConfirm}
                   placeholder="Type DELETE"
-                  style={[
-                    styles.deleteInput,
-                    {
-                      borderColor: colors.danger,
-                      color: colors.text,
-                      backgroundColor: colors.background,
-                    },
-                  ]}
+                  style={deleteInputStyle}
                   placeholderTextColor={colors.textSecondary}
                   autoCapitalize="characters"
                 />
@@ -169,13 +199,8 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.md },
   card: {
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   cardTitle: {
     fontSize: FontSize.xl,
@@ -231,8 +256,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   deleteInput: {
-    borderWidth: 1.5,
-    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     fontSize: FontSize.lg,

@@ -1,5 +1,50 @@
 # Activity Log
 
+---
+
+## [2026-03-23] — React Native Skill: Performance Fixes
+
+**Role:** Orchestrator
+**Action:** feature-build
+**Summary:** Applied Vercel React Native skill performance rules to todos screen and TodoCard component. Fixes cover stable callbacks, memoization, and modern styling.
+
+### Details
+- 3 orchestration steps (Coder → Reviewer → Fixer)
+- Sub-agents: Developer (Sonnet), Reviewer (Sonnet), Fixer (Sonnet)
+- Workspace: orchestrator-workspace/
+
+### Changes
+- `todos.tsx`: stable `handlePress`/`handleToggle`/`handleDelete`/`onRefresh` via `useCallback`; destructured `.mutate` from TanStack Query hooks for reference stability; stable `renderItem` via `useCallback`; FAB shadow replaced with `boxShadow` CSS string
+- `todo-card.tsx`: wrapped with `React.memo()`; accepts `id` prop; handler signatures now take `id`; removed internal `useCallback` wrappers; `borderCurve: 'continuous'` added to checkbox style
+
+### Next Steps
+- Consider FlashList/LegendList to replace FlatList for further virtualization gains
+
+---
+
+## [2026-03-22] — Profile Endpoint + Integration Tests
+
+**Role:** Orchestrator
+**Action:** feature-build
+**Summary:** Built `/api/v1/profile` GET+PATCH endpoints with schemas, unit tests, and integration tests. All 16 new tests pass; full suite 139 passed, 1 skipped.
+
+### Details
+- 5-step orchestration: Analyzer → Coder → Reviewer → Fixer → Tester
+- Sub-agents: Explorer (Haiku), Developer (Sonnet), Reviewer (Sonnet), Fixer (Sonnet), QA (Sonnet)
+- Workspace: `orchestrator-workspace/`
+
+### Outcome
+- `backend/app/schemas/profile.py` — ProfileResponse, ProfileUpdateRequest
+- `backend/app/api/v1/profile.py` — GET /profile, PATCH /profile
+- `backend/app/api/v1/router.py` — profile router registered
+- `backend/tests/test_profile.py` — 8 unit tests (all pass)
+- `backend/tests/integration/test_profile_integration.py` — 8 integration tests (all pass)
+
+### Next Steps
+- Frontend profile screen + profileService
+
+---
+
 ## [2026-03-22] — rn-ui Design System Applied
 
 **Role:** Orchestrator

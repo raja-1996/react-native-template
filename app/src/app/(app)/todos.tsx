@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { FlatList, StyleSheet, Pressable, View, Alert, RefreshControl } from 'react-native';
+import { useState, useCallback, useMemo } from 'react';
+import { StyleSheet, Pressable, View, Alert, RefreshControl } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '../../components/themed-view';
 import { ThemedText } from '../../components/themed-text';
@@ -12,42 +13,60 @@ export default function TodosScreen() {
   const router = useRouter();
   const colors = useTheme();
   const { data: todos, isLoading, refetch } = useTodos();
-  const updateTodo = useUpdateTodo();
-  const deleteTodo = useDeleteTodo();
+  const { mutate: updateTodo } = useUpdateTodo();
+  const { mutate: deleteTodo } = useDeleteTodo();
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = async () => {
+  const fabStyle = useMemo(
+    () => [styles.fab, { backgroundColor: colors.primary }],
+    [colors.primary]
+  );
+
+  const fabTextStyle = useMemo(
+    () => [styles.fabText, { color: colors.primaryText }],
+    [colors.primaryText]
+  );
+
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
-  };
+  }, [refetch]);
 
-  const handleToggle = (id: string, isCompleted: boolean) => {
-    updateTodo.mutate({ id, data: { is_completed: !isCompleted } });
-  };
+  const handlePress = useCallback((id: string) => {
+    router.push({ pathname: '/(app)/todo-detail', params: { id } });
+  }, [router]);
 
-  const handleDelete = (id: string) => {
+  const handleToggle = useCallback((id: string, isCompleted: boolean) => {
+    updateTodo({ id, data: { is_completed: !isCompleted } });
+  }, [updateTodo]);
+
+  const handleDelete = useCallback((id: string) => {
     Alert.alert('Delete Todo', 'Are you sure you want to delete this todo?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => deleteTodo.mutate(id) },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteTodo(id) },
     ]);
-  };
+  }, [deleteTodo]);
+
+  const renderItem = useCallback(({ item }: { item: { id: string; title: string; description?: string; is_completed: boolean } }) => (
+    <TodoCard
+      id={item.id}
+      title={item.title}
+      description={item.description}
+      isCompleted={item.is_completed}
+      onPress={handlePress}
+      onToggle={handleToggle}
+      onLongPress={handleDelete}
+    />
+  ), [handlePress, handleToggle, handleDelete]);
 
   return (
     <ThemedView style={styles.container}>
-      <FlatList
+      <FlashList
         data={todos}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TodoCard
-            title={item.title}
-            description={item.description}
-            isCompleted={item.is_completed}
-            onPress={() => router.push({ pathname: '/(app)/todo-detail', params: { id: item.id } })}
-            onToggle={() => handleToggle(item.id, item.is_completed)}
-            onLongPress={() => handleDelete(item.id)}
-          />
-        )}
+        renderItem={renderItem}
+        estimatedItemSize={72}
         contentContainerStyle={styles.list}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
@@ -55,11 +74,9 @@ export default function TodosScreen() {
         ListEmptyComponent={
           !isLoading ? (
             <View style={styles.empty}>
-              <View style={[styles.emptyIconCircle, { backgroundColor: colors.surface }]}>
-                <ThemedText style={styles.emptyIcon}>☑</ThemedText>
-              </View>
-              <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>No todos yet</ThemedText>
-              <ThemedText style={[styles.emptyCaption, { color: colors.textSecondary }]}>Tap + to create your first one</ThemedText>
+              <ThemedText style={styles.emptyIcon}>☑</ThemedText>
+              <ThemedText style={styles.emptyTitle}>No todos yet</ThemedText>
+              <ThemedText variant="secondary" style={styles.emptyCaption}>Tap + to create your first one</ThemedText>
             </View>
           ) : null
         }
@@ -69,9 +86,9 @@ export default function TodosScreen() {
       <Pressable
         testID="fab-button"
         onPress={() => router.push({ pathname: '/(app)/todo-detail' })}
-        style={[styles.fab, { backgroundColor: colors.primary }]}
+        style={({ pressed }) => [fabStyle, pressed && styles.fabPressed]}
       >
-        <ThemedText style={[styles.fabText, { color: colors.primaryText }]}>+</ThemedText>
+        <ThemedText style={fabTextStyle}>+</ThemedText>
       </Pressable>
     </ThemedView>
   );
@@ -80,7 +97,7 @@ export default function TodosScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   list: {
-    padding: Spacing.md,
+    paddingBottom: Spacing.xxl * 2,
   },
   empty: {
     flex: 1,
@@ -88,21 +105,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: Spacing.xxl * 2,
   },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
-  },
   emptyIcon: {
     fontSize: FontSize.xxl,
+    marginBottom: Spacing.md,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: FontSize.xl,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: Spacing.xs,
   },
   emptyCaption: {
     fontSize: FontSize.md,
@@ -117,14 +127,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.10,
-    shadowRadius: 16,
+    boxShadow: '0 2px 16px rgba(0,0,0,0.10)',
   },
   fabText: {
     fontSize: 28,
     fontWeight: 'bold',
     lineHeight: 30,
+  },
+  fabPressed: {
+    opacity: 0.7,
   },
 });

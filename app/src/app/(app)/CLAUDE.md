@@ -6,7 +6,7 @@ Authenticated route group — tab-based navigator with Todos, Realtime, and Sett
   - deps: `../../hooks/use-theme`, `expo-router`
   - gotcha: `todo-detail` tab has `href: null` — hidden from tab bar but accessible via `router.push('/(app)/todo-detail')`
 
-- `todos.tsx` — main todo list screen; FlatList with pull-to-refresh, toggle complete, delete (long press), and FAB to create
+- `todos.tsx` — main todo list screen; FlashList with pull-to-refresh, toggle complete, delete (long press), and FAB to create
   - exports: default `TodosScreen`
   - deps: `../../components/themed-view`, `../../components/themed-text`, `../../components/todo-card`, `../../hooks/use-todos`, `../../hooks/use-theme`, `../../constants/theme`
   - side-effects: mutates via `useUpdateTodo` / `useDeleteTodo` (backend API calls via TanStack mutation)

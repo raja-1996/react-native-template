@@ -6,16 +6,16 @@ import { Alert } from 'react-native';
 // Mock useTheme
 // ---------------------------------------------------------------------------
 const mockColors = {
-  text: '#11181C',
-  textSecondary: '#687076',
+  text: '#0F1419',
+  textSecondary: '#536471',
   background: '#FFFFFF',
-  surface: '#F6F6F6',
-  border: '#E6E8EB',
-  primary: '#0A7EA4',
+  surface: '#F7F9F9',
+  border: '#EFF3F4',
+  primary: '#1D9BF0',
   primaryText: '#FFFFFF',
-  danger: '#E5484D',
+  danger: '#F4212E',
   dangerText: '#FFFFFF',
-  success: '#30A46C',
+  success: '#00BA7C',
 };
 
 jest.mock('../hooks/use-theme', () => ({
@@ -489,13 +489,13 @@ describe('TodosScreen', () => {
 
   it('renders empty state text when todos list is empty and not loading', () => {
     render(<TodosScreen />);
-    expect(screen.getByText('No todos yet. Tap + to create one.')).toBeTruthy();
+    expect(screen.getByText('No todos yet')).toBeTruthy();
   });
 
   it('does not render empty state when isLoading is true', () => {
     (useTodos as jest.Mock).mockReturnValue({ data: [], isLoading: true, refetch: mockRefetch });
     render(<TodosScreen />);
-    expect(screen.queryByText('No todos yet. Tap + to create one.')).toBeNull();
+    expect(screen.queryByText('No todos yet')).toBeNull();
   });
 
   it('renders the FAB "+" button', () => {

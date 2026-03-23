@@ -1,5 +1,15 @@
 # Activity Log
 
+## [2026-03-22] — Profile Endpoint + Integration Tests
+
+- Created `GET /api/v1/profile` + `PATCH /api/v1/profile` endpoints
+- Schema: `ProfileResponse` (all fields including push_token) + `ProfileUpdateRequest` (full_name, avatar_url)
+- Router registered in `router.py`; user-scoped Supabase client enforces RLS
+- 8 unit tests + 8 integration tests; all pass; full suite 139 passed, 1 skipped
+- Gotcha: `exclude_unset=True` (not `exclude_none`) for correct partial PATCH semantics
+
+---
+
 ## [2026-03-22] — Phone OTP: E2E Maestro Flow + Navigation Bug Fix
 
 - Fixed `phone-login.tsx` missing `router.replace('/(app)/todos')` after `verifyPhoneOtp` — verify button did nothing; store set `isAuthenticated: true` but navigation never triggered

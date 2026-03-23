@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { StyleSheet } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../hooks/use-theme';
 import {
   registerForPushNotifications,
@@ -41,7 +43,12 @@ export default function AppLayout() {
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          backgroundColor: colors.background,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+        },
         headerStyle: { backgroundColor: colors.background },
         headerTintColor: colors.text,
       }}
@@ -50,18 +57,27 @@ export default function AppLayout() {
         name="todos"
         options={{
           title: 'Todos',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="checkmark-circle-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="realtime"
         options={{
           title: 'Realtime',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="radio-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen

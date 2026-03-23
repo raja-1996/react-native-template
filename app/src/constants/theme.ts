@@ -1,27 +1,15 @@
 export const Colors = {
   light: {
-    text: '#202124',
-    textSecondary: '#5F6368',
+    text: '#0F1419',
+    textSecondary: '#536471',
     background: '#FFFFFF',
-    surface: '#F8F9FA',
-    border: '#E8EAED',
-    primary: '#1A73E8',
+    surface: '#F7F9F9',
+    border: '#EFF3F4',
+    primary: '#1D9BF0',
     primaryText: '#FFFFFF',
-    danger: '#EA4335',
+    danger: '#F4212E',
     dangerText: '#FFFFFF',
-    success: '#34A853',
-  },
-  dark: {
-    text: '#ECEDEE',
-    textSecondary: '#9BA1A6',
-    background: '#151718',
-    surface: '#1E2022',
-    border: '#2E3235',
-    primary: '#0A7EA4',
-    primaryText: '#FFFFFF',
-    danger: '#E5484D',
-    dangerText: '#FFFFFF',
-    success: '#30A46C',
+    success: '#00BA7C',
   },
 };
 
@@ -35,18 +23,18 @@ export const Spacing = {
 };
 
 export const FontSize = {
-  sm: 12,
+  sm: 13,
   md: 14,
   lg: 16,
   xl: 20,
-  xxl: 28,
-  title: 34,
+  xxl: 22,
+  title: 22,
 };
 
 export const BorderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
+  sm: 4,
+  md: 8,
+  lg: 12,
+  xl: 16,
   full: 9999,
 };

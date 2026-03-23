@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { ThemedView } from '../../components/themed-view';
@@ -30,6 +30,19 @@ export default function TodoDetailScreen() {
   const [saving, setSaving] = useState(false);
 
   const [seededId, setSeededId] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!id) {
+        setTitle('');
+        setDescription('');
+        setIsCompleted(false);
+        setImagePath(null);
+        setImageUrl(null);
+        setSeededId(null);
+      }
+    }, [id])
+  );
 
   useEffect(() => {
     if (todo && todo.id !== seededId) {
@@ -118,7 +131,7 @@ export default function TodoDetailScreen() {
         style={styles.flex}
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={[styles.formCard, { backgroundColor: colors.background }]}>
+          <View style={styles.formCard}>
             <Input
               testID="title-input"
               label="Title"
@@ -182,14 +195,8 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   formCard: {
-    borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginBottom: Spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
   },
   descriptionInput: {
     minHeight: 100,

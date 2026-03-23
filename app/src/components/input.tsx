@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { TextInput, TextInputProps, View, StyleSheet } from 'react-native';
 import { ThemedText } from './themed-text';
 import { useTheme } from '../hooks/use-theme';
@@ -11,19 +12,23 @@ interface InputProps extends TextInputProps {
 export function Input({ label, error, style, ...rest }: InputProps) {
   const colors = useTheme();
 
+  const inputStyle = useMemo(
+    () => [
+      styles.input,
+      {
+        backgroundColor: colors.background,
+        borderColor: error ? colors.danger : colors.border,
+        color: colors.text,
+      },
+    ],
+    [colors.background, colors.danger, colors.border, colors.text, error]
+  );
+
   return (
     <View style={styles.container}>
       {label && <ThemedText style={styles.label}>{label}</ThemedText>}
       <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: colors.background,
-            borderColor: error ? colors.danger : colors.border,
-            color: colors.text,
-          },
-          style,
-        ]}
+        style={[inputStyle, style]}
         placeholderTextColor={colors.textSecondary}
         {...rest}
       />
@@ -44,12 +49,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   input: {
-    borderWidth: 1.5,
-    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderRadius: BorderRadius.sm,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm + 4,
+    paddingVertical: Spacing.sm,
     fontSize: FontSize.lg,
-    minHeight: 52,
+    minHeight: 44,
   },
   error: {
     fontSize: FontSize.sm,

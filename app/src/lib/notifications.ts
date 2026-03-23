@@ -1,53 +1,72 @@
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import notificationsService from '../services/notifications-service';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// expo-notifications remote push was removed from Expo Go in SDK 53.
+// Use require() so the throw is catchable (static imports throw before any code runs).
+let Notifications: typeof import('expo-notifications') | null = null;
+try {
+  Notifications = require('expo-notifications');
+  Notifications!.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch {
+  // Not available in Expo Go SDK 53+ — silently skip
+}
 
 export async function registerForPushNotifications(): Promise<string | null> {
-  if (!Device.isDevice) {
-    return null; // Push doesn't work on simulators
-  }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  if (finalStatus !== 'granted') {
+  if (!Notifications || !Device.isDevice) {
     return null;
   }
-
-  const tokenData = await Notifications.getExpoPushTokenAsync();
-  const token = tokenData.data;
-
-  // Register token with backend
   try {
-    await notificationsService.registerToken(token);
-  } catch {
-    // Silently fail — token registration is not critical
-  }
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
 
-  return token;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      return null;
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const token = tokenData.data;
+
+    try {
+      await notificationsService.registerToken(token);
+    } catch {
+      // Silently fail — token registration is not critical
+    }
+
+    return token;
+  } catch {
+    return null;
+  }
 }
 
 export function addNotificationListener(
-  handler: (notification: Notifications.Notification) => void
+  handler: (notification: any) => void
 ) {
-  return Notifications.addNotificationReceivedListener(handler);
+  if (!Notifications) return { remove: () => {} };
+  try {
+    return Notifications.addNotificationReceivedListener(handler);
+  } catch {
+    return { remove: () => {} };
+  }
 }
 
 export function addNotificationResponseListener(
-  handler: (response: Notifications.NotificationResponse) => void
+  handler: (response: any) => void
 ) {
-  return Notifications.addNotificationResponseReceivedListener(handler);
+  if (!Notifications) return { remove: () => {} };
+  try {
+    return Notifications.addNotificationResponseReceivedListener(handler);
+  } catch {
+    return { remove: () => {} };
+  }
 }

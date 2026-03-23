@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Pressable, PressableProps, StyleSheet, ActivityIndicator } from 'react-native';
 import { ThemedText } from './themed-text';
 import { useTheme } from '../hooks/use-theme';
@@ -9,7 +10,7 @@ interface ButtonProps extends Omit<PressableProps, 'children'> {
   loading?: boolean;
 }
 
-export function Button({ title, variant = 'primary', loading, style, ...rest }: ButtonProps) {
+export function Button({ title, variant = 'primary', loading, disabled, style, ...rest }: ButtonProps) {
   const colors = useTheme();
 
   const bgColor = variant === 'primary'
@@ -20,16 +21,20 @@ export function Button({ title, variant = 'primary', loading, style, ...rest }: 
 
   const textColor = variant === 'outline' ? colors.primary : colors.primaryText;
 
+  const buttonBaseStyle = useMemo(
+    () => [
+      styles.button,
+      { backgroundColor: bgColor },
+      variant === 'outline' && { borderWidth: 1, borderColor: colors.primary },
+      disabled && styles.disabled,
+    ],
+    [bgColor, variant, colors.primary, disabled]
+  );
+
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.button,
-        { backgroundColor: bgColor, opacity: pressed ? 0.8 : 1 },
-        variant === 'outline' && { borderWidth: 1.5, borderColor: colors.primary },
-        rest.disabled && styles.disabled,
-        style as any,
-      ]}
-      disabled={loading || rest.disabled}
+      style={({ pressed }) => [buttonBaseStyle, pressed && styles.buttonPressed, style as any]}
+      disabled={loading || disabled}
       {...rest}
     >
       {loading ? (
@@ -43,12 +48,12 @@ export function Button({ title, variant = 'primary', loading, style, ...rest }: 
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: Spacing.sm + 4,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 52,
+    minHeight: 44,
   },
   text: {
     fontSize: FontSize.lg,
@@ -56,5 +61,8 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.5,
+  },
+  buttonPressed: {
+    opacity: 0.8,
   },
 });

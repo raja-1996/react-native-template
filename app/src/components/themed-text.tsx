@@ -24,10 +24,10 @@ export function ThemedText({ style, variant = 'default', ...rest }: ThemedTextPr
 
 const styles = StyleSheet.create({
   base: {
-    fontSize: 16,
+    fontSize: 15,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
   },
 });

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, ScrollView, View, FlatList } from 'react-native';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { StyleSheet, ScrollView, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { ThemedView } from '../../components/themed-view';
 import { ThemedText } from '../../components/themed-text';
@@ -28,9 +29,14 @@ export default function RealtimeScreen() {
   const [counter, setCounter] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
 
+  const cardStyle = useMemo(
+    () => [styles.card, { backgroundColor: colors.background, borderBottomColor: colors.border }],
+    [colors.background, colors.border]
+  );
+
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  useEffect(() => {
+  const setupChannel = useCallback(() => {
     if (channelRef.current) {
       return;
     }
@@ -72,22 +78,24 @@ export default function RealtimeScreen() {
     const accessToken = useAuthStore.getState().accessToken;
     if (accessToken) supabase.realtime.setAuth(accessToken);
 
+    channelRef.current = channel;
+
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         setIsConnected(true);
         channel.track({ user_id: user?.id ?? 'anonymous' });
-      } else if (
-        status === 'CHANNEL_ERROR' ||
-        status === 'TIMED_OUT' ||
-        status === 'CLOSED'
-      ) {
-        supabase.removeChannel(channelRef.current!);
-        channelRef.current = null;
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         setIsConnected(false);
+        if (channelRef.current) {
+          channelRef.current = null;
+          supabase.removeChannel(channel);
+        }
       }
     });
+  }, [user?.id]);
 
-    channelRef.current = channel;
+  useEffect(() => {
+    setupChannel();
 
     return () => {
       if (channelRef.current) {
@@ -96,7 +104,7 @@ export default function RealtimeScreen() {
       }
       setIsConnected(false);
     };
-  }, [user]);
+  }, [setupChannel]);
 
   const handleToggleConnection = () => {
     if (isConnected) {
@@ -106,63 +114,7 @@ export default function RealtimeScreen() {
       }
       setIsConnected(false);
     } else {
-      if (channelRef.current) {
-        return;
-      }
-
-      const channel = supabase.channel(CHANNEL_NAME, {
-        config: { broadcast: { self: true } },
-      });
-
-      channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'todos' },
-        (payload) => {
-          const record = (payload.new && Object.keys(payload.new).length > 0
-            ? payload.new
-            : payload.old) as Record<string, unknown>;
-
-          const entry: LogEntry = {
-            id: `${Date.now()}-${Math.random()}`,
-            eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-            title: record?.title != null ? String(record.title) : '(untitled)',
-            timestamp: new Date().toLocaleTimeString(),
-          };
-
-          setLog((prev) => [entry, ...prev].slice(0, LOG_CAP));
-        }
-      );
-
-      channel.on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        setPresenceCount(Object.keys(state).length);
-      });
-
-      channel.on('broadcast', { event: 'counter' }, (payload) => {
-        if (typeof payload.payload?.value === 'number') {
-          setCounter(payload.payload.value);
-        }
-      });
-
-      const accessToken = useAuthStore.getState().accessToken;
-      if (accessToken) supabase.realtime.setAuth(accessToken);
-
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setIsConnected(true);
-          channel.track({ user_id: user?.id ?? 'anonymous' });
-        } else if (
-          status === 'CHANNEL_ERROR' ||
-          status === 'TIMED_OUT' ||
-          status === 'CLOSED'
-        ) {
-          supabase.removeChannel(channelRef.current!);
-          channelRef.current = null;
-          setIsConnected(false);
-        }
-      });
-
-      channelRef.current = channel;
+      setupChannel();
     }
   };
 
@@ -175,13 +127,13 @@ export default function RealtimeScreen() {
     });
   };
 
-  const getBadgeColor = (eventType: LogEntry['eventType']) => {
+  const getBadgeColor = useCallback((eventType: LogEntry['eventType']) => {
     if (eventType === 'INSERT') return colors.success;
     if (eventType === 'UPDATE') return colors.primary;
     return colors.danger;
-  };
+  }, [colors.success, colors.primary, colors.danger]);
 
-  const renderLogEntry = ({ item }: { item: LogEntry }) => (
+  const renderLogEntry = useCallback(({ item }: { item: LogEntry }) => (
     <View style={styles.logEntry}>
       <View style={[styles.badge, { backgroundColor: getBadgeColor(item.eventType) }]}>
         <ThemedText style={styles.badgeText}>{item.eventType}</ThemedText>
@@ -189,7 +141,7 @@ export default function RealtimeScreen() {
       <ThemedText style={styles.logTitle} numberOfLines={1}>{item.title}</ThemedText>
       <ThemedText variant="secondary" style={styles.logTimestamp}>{item.timestamp}</ThemedText>
     </View>
-  );
+  ), [getBadgeColor]);
 
   return (
     <ThemedView style={styles.container}>
@@ -205,13 +157,14 @@ export default function RealtimeScreen() {
         </View>
 
         {/* Card 1: Live Todos Feed */}
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
+        <View style={cardStyle}>
           <ThemedText style={styles.cardTitle}>Live Todos Feed</ThemedText>
           <View style={styles.logContainer}>
-            <FlatList
+            <FlashList
               data={log}
               keyExtractor={(item) => item.id}
               renderItem={renderLogEntry}
+              estimatedItemSize={36}
               testID="log-list"
               scrollEnabled={false}
               ListEmptyComponent={
@@ -224,7 +177,7 @@ export default function RealtimeScreen() {
         </View>
 
         {/* Card 2: Presence */}
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
+        <View style={cardStyle}>
           <ThemedText style={styles.cardTitle}>Presence</ThemedText>
           <ThemedText
             testID="presence-count"
@@ -235,7 +188,7 @@ export default function RealtimeScreen() {
         </View>
 
         {/* Card 3: Broadcast Counter */}
-        <View style={[styles.card, { backgroundColor: colors.background }]}>
+        <View style={cardStyle}>
           <ThemedText style={styles.cardTitle}>Broadcast Counter</ThemedText>
           <ThemedText testID="counter-value" style={styles.counterValue}>
             {counter}
@@ -260,13 +213,8 @@ const styles = StyleSheet.create({
   },
   card: {
     padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   cardTitle: {
     fontSize: FontSize.xl,
@@ -286,7 +234,7 @@ const styles = StyleSheet.create({
   badge: {
     paddingHorizontal: Spacing.xs,
     paddingVertical: 2,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.full,
   },
   badgeText: {
     fontSize: FontSize.sm,
